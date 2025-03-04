@@ -140,3 +140,24 @@ class ReplicatedResponseAccumulator:
     def num_samples_str(self):
         """Return a string representation of replications and samples per replication."""
         return str(self.num_replications) + " x " + str(self.num_samples)
+
+
+class FastGaussianProcessResponseAccumulator(ResponseAccumulator):
+    """
+    Accumulates responses using a Fast Gaussian Process fit.
+    """
+
+    # @property
+    # def mean(self):
+    #     """Return the mean of responses."""
+    #     pass
+
+    # @property
+    # def variance(self):
+    #     """Return the variance of responses."""
+    #     pass
+
+    @property
+    def squared_standard_error(self):
+        """Return the squared standard error."""
+        pass

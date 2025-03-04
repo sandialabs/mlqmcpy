@@ -2,7 +2,11 @@ from abc import ABC, abstractmethod
 
 from qmcpy import DigitalNetB2, DiscreteDistribution, IIDStdUniform
 
-from .accumulators import ReplicatedResponseAccumulator, ResponseAccumulator
+from .accumulators import (
+    FastGaussianProcessResponseAccumulator,
+    ReplicatedResponseAccumulator,
+    ResponseAccumulator,
+)
 from .solvers import (
     AnalyticSampleAllocationProblemSolver,
     GreedySampleAllocationProblemSolver,
@@ -90,6 +94,27 @@ class GreedyMLQMCFactory(AbstractMultilevelFactory):
         return discrete_distribution_type(
             dimension, seed=seed, replications=replications
         )
+
+    def create_sample_allocation_solver(self, initial_sample_size_list):
+        return GreedySampleAllocationProblemSolver(initial_sample_size_list)
+
+
+class GreedyFastGaussianProcessMLQMCFactory(AbstractMultilevelFactory):
+    """Concrete factory for a Greedy MLQMC iterator using QMC replications."""
+
+    def create_response_accumulator(self, cost: float, replications: int):
+        return FastGaussianProcessResponseAccumulator(cost)
+
+    def create_point_generator(
+        self,
+        discrete_distribution_type: DiscreteDistribution,
+        dimension: int,
+        seed: int,
+        replications: int,
+    ):
+        if discrete_distribution_type is None:
+            discrete_distribution_type = DigitalNetB2
+        return discrete_distribution_type(dimension, seed=seed)
 
     def create_sample_allocation_solver(self, initial_sample_size_list):
         return GreedySampleAllocationProblemSolver(initial_sample_size_list)

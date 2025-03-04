@@ -6,6 +6,7 @@ from prettytable import PrettyTable
 from .factories import (
     AbstractMultilevelFactory,
     AnalyticMLMCFactory,
+    GreedyFastGaussianProcessMLQMCFactory,
     GreedyMLMCFactory,
     GreedyMLQMCFactory,
 )
@@ -233,4 +234,24 @@ class GreedyMLQMCIterator(AbstractMultilevelIterator):
             if key not in self.ALLOWED_KEYS:
                 raise ValueError(f"Invalid keyword argument provided: '{key}'")
         factory = GreedyMLQMCFactory()
+        super().__init__(*args, factory=factory, **kwargs)
+
+
+class FastGaussianProcessMLQMCIterator(AbstractMultilevelIterator):
+    """Iterator for Fast Gaussian Process MLQMC using replications."""
+
+    ALLOWED_KEYS = {
+        "cost_per_level",
+        "initial_sample_size",
+        "max_budget",
+        "error_tolerance",
+        "seed_list",
+        "discrete_distribution_type",
+    }
+
+    def __init__(self, *args, **kwargs):
+        for key in kwargs.keys():
+            if key not in self.ALLOWED_KEYS:
+                raise ValueError(f"Invalid keyword argument provided: '{key}'")
+        factory = GreedyFastGaussianProcessMLQMCFactory()
         super().__init__(*args, factory=factory, **kwargs)
