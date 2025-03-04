@@ -3,6 +3,7 @@ name = "mlqmcpy"
 version = "0.0.1"
 description = "Multilevel quasi-Monte Carlo in Python."
 dependencies = [
+    "boost-histogram>=1.5.1",
     "numpy>=2.2.2",
     "qmcpy>=1.6.2",
     "prettytable>=3.5.0"
