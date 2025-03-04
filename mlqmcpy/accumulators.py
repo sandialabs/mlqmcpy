@@ -1,0 +1,142 @@
+import numpy as np
+from boost_histogram.accumulators import Mean
+
+
+class Accumulator:
+    """
+    Wraps a boost_histogram Mean accumulator.
+    """
+
+    def __init__(self):
+        self._accumulator = Mean()
+
+    def add(self, sample):
+        """Add a sample."""
+        self._accumulator(sample)
+
+    @property
+    def mean(self):
+        """Return the current mean or NaN if no samples."""
+        return self._accumulator.value if len(self) else np.nan
+
+    @property
+    def variance(self):
+        """Return the current variance or NaN if no samples."""
+        return self._accumulator.variance if len(self) else np.nan
+
+    def __len__(self):
+        """Return the number of samples."""
+        return int(self._accumulator.count)
+
+    @property
+    def squared_standard_error(self):
+        """Return the squared standard error or NaN if no samples."""
+        return self.variance / len(self) if len(self) else np.nan
+
+    def reset(self):
+        """Reset the accumulator."""
+        self._accumulator = Mean()
+
+
+class ResponseAccumulator:
+    """
+    Accumulates responses with an associated cost.
+    """
+
+    def __init__(self, cost=1):
+        self._cost = cost
+        self._accumulator = Accumulator()
+
+    def add_responses(self, responses):
+        """Add multiple responses."""
+        for response in responses:
+            self._accumulator.add(response)
+
+    @property
+    def cost(self):
+        """Return the cost."""
+        return self._cost
+
+    @property
+    def mean(self):
+        """Return the mean of responses."""
+        return self._accumulator.mean
+
+    @property
+    def variance(self):
+        """Return the variance of responses."""
+        return self._accumulator.variance
+
+    @property
+    def squared_standard_error(self):
+        """Return the squared standard error."""
+        return self._accumulator.squared_standard_error
+
+    def __len__(self):
+        """Return the number of responses."""
+        return len(self._accumulator)
+
+    @property
+    def num_samples(self):
+        """Return the number of samples."""
+        return len(self)
+
+    @property
+    def num_samples_str(self):
+        """Return a string representation of sample count."""
+        return str(len(self))
+
+
+class ReplicatedResponseAccumulator:
+    """
+    Accumulates responses using multiple replications.
+    """
+
+    def __init__(self, num_replications, cost=1):
+        self.num_replications = num_replications
+        self._cost = cost
+        self._accumulators = [Accumulator() for _ in range(self.num_replications)]
+
+    def add_responses(self, responses):
+        """Split responses among replications and add to each accumulator."""
+        responses_split = np.array_split(responses, self.num_replications)
+        for accumulator, responses in zip(self._accumulators, responses_split):
+            for response in responses:
+                accumulator.add(response)
+
+    @property
+    def cost(self):
+        """Return the cost."""
+        return self._cost
+
+    @property
+    def mean(self):
+        """Return the mean over replications."""
+        return np.mean([accumulator.mean for accumulator in self._accumulators])
+
+    @property
+    def variance(self):
+        """Return the mean variance over replications."""
+        return np.mean([accumulator.variance for accumulator in self._accumulators])
+
+    @property
+    def squared_standard_error(self):
+        """Return the squared standard error across replications."""
+        return (
+            np.var([accumulator.mean for accumulator in self._accumulators])
+            / self.num_replications
+        )
+
+    def __len__(self):
+        """Return the total number of responses across all replications."""
+        return np.sum([len(accumulator) for accumulator in self._accumulators])
+
+    @property
+    def num_samples(self):
+        """Return the number of samples per replication."""
+        return int(len(self) / self.num_replications)
+
+    @property
+    def num_samples_str(self):
+        """Return a string representation of replications and samples per replication."""
+        return str(self.num_replications) + " x " + str(self.num_samples)

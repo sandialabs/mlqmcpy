@@ -1,0 +1,35 @@
+[project]
+name = "mlqmcpy"
+version = "0.0.1"
+description = "Multilevel quasi-Monte Carlo in Python."
+dependencies = [
+    "numpy>=2.2.2",
+    "qmcpy>=1.6.2",
+    "prettytable>=3.5.0"
+]
+requires-python = ">=3.13"
+
+[project.optional-dependencies]
+dev = [
+    "black>=25.1.0",
+    "isort>=6.0.0",
+    "ruff>=0.9.6",
+    "pre-commit>=4.1.0"
+]
+
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["mlqmcpy"]
+
+[tool.black]
+line-length = 88
+target-version = ["py313"]
+
+[tool.ruff]
+line-length = 88
+
+[tool.isort]
+profile = "black"
