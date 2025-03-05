@@ -1,8 +1,9 @@
 from abc import ABC, abstractmethod
 
-from qmcpy import DigitalNetB2, DiscreteDistribution, IIDStdUniform
+from qmcpy import DiscreteDistribution
 
 from .accumulators import ReplicatedResponseAccumulator, ResponseAccumulator
+from .point_generators import IIDPointGenerator, LDPointGenerator
 from .solvers import (
     AnalyticSampleAllocationProblemSolver,
     GreedySampleAllocationProblemSolver,
@@ -47,7 +48,7 @@ class GreedyMLMCFactory(AbstractMultilevelFactory):
         seed: int,
         replications: int,
     ):
-        return IIDStdUniform(dimension, seed=seed)
+        return IIDPointGenerator(dimension, seed)
 
     def create_sample_allocation_solver(self, initial_sample_size_list):
         return GreedySampleAllocationProblemSolver(initial_sample_size_list)
@@ -66,7 +67,7 @@ class AnalyticMLMCFactory(AbstractMultilevelFactory):
         seed: int,
         replications: int,
     ):
-        return IIDStdUniform(dimension, seed=seed)
+        return IIDPointGenerator(dimension, seed)
 
     def create_sample_allocation_solver(self, initial_sample_size_list):
         return AnalyticSampleAllocationProblemSolver(initial_sample_size_list)
@@ -85,10 +86,8 @@ class GreedyMLQMCFactory(AbstractMultilevelFactory):
         seed: int,
         replications: int,
     ):
-        if discrete_distribution_type is None:
-            discrete_distribution_type = DigitalNetB2
-        return discrete_distribution_type(
-            dimension, seed=seed, replications=replications
+        return LDPointGenerator(
+            discrete_distribution_type, dimension, seed, replications
         )
 
     def create_sample_allocation_solver(self, initial_sample_size_list):
