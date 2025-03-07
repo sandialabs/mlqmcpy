@@ -116,10 +116,10 @@ class AbstractMultilevelIterator(ABC):
         new_sample_sizes = self._sample_allocation_solver.step(
             self._response_accumulators, self._stopping_criterion
         )
-        n_mins = [a.num_samples for a in self._response_accumulators]
+
         return {
             level: AbstractMultilevelIterator._concatenate(
-                self._point_generators[level].gen_samples(n_min=n_mins[level],n_max=n_mins[level]+number_of_samples)
+                self._point_generators[level].generate(number_of_samples)
             )
             for level, number_of_samples in new_sample_sizes.items()
         }
