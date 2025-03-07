@@ -27,7 +27,7 @@ class AbstractMultilevelIterator(ABC):
         initial_sample_size=8,
         max_budget=None,
         error_tolerance=None,
-        seed_list=None,
+        seed=None,
         replications=8,
         discrete_distribution_type=None,
         factory: AbstractMultilevelFactory = None,
@@ -47,10 +47,11 @@ class AbstractMultilevelIterator(ABC):
             dimension_list = np.array(dimension, dtype=int)
 
         # Seed per level.
-        if seed_list is None:
-            seed_list = [None] * len(self)
+        if seed is None or isinstance(seed,int):
+            seed = np.random.SeedSequence(seed)
         else:
-            seed_list = np.array(seed_list, dtype=int)
+            assert isinstance(seed,np.random.SeedSequence), "require seed is None, an int, or a np.random.SeedSequence"
+        seeds = seed.spawn(self._num_levels)
 
         # Replications per level.
         if isinstance(replications, int):
@@ -71,7 +72,7 @@ class AbstractMultilevelIterator(ABC):
             self._factory.create_point_generator(
                 discrete_distribution_type,
                 dimension_list[level],
-                seed_list[level],
+                seeds[level],
                 replications_list[level],
             )
             for level in range(len(self))
@@ -186,7 +187,7 @@ class GreedyMLMCIterator(AbstractMultilevelIterator):
         "initial_sample_size",
         "max_budget",
         "error_tolerance",
-        "seed_list",
+        "seed",
     }
 
     def __init__(self, *args, **kwargs):
@@ -205,7 +206,7 @@ class AnalyticMLMCIterator(AbstractMultilevelIterator):
         "initial_sample_size",
         "max_budget",
         "error_tolerance",
-        "seed_list",
+        "seed",
     }
 
     def __init__(self, *args, **kwargs):
@@ -224,7 +225,7 @@ class GreedyMLQMCIterator(AbstractMultilevelIterator):
         "initial_sample_size",
         "max_budget",
         "error_tolerance",
-        "seed_list",
+        "seed",
         "replications",
         "discrete_distribution_type",
     }
@@ -245,7 +246,7 @@ class FastGaussianProcessMLQMCIterator(AbstractMultilevelIterator):
         "initial_sample_size",
         "max_budget",
         "error_tolerance",
-        "seed_list",
+        "seed",
         "discrete_distribution_type",
     }
 
