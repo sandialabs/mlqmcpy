@@ -6,7 +6,8 @@ dependencies = [
     "boost-histogram>=1.5.1",
     "numpy>=2.2.2",
     "qmcpy>=1.6.2",
-    "prettytable>=3.5.0"
+    "prettytable>=3.5.0",
+    "fastgp@git+https://github.com/alegresor/FastGaussianProcesses/",
 ]
 requires-python = ">=3.13"
 
