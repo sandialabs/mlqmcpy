@@ -1,4 +1,5 @@
 import numpy as np
+import torch
 from boost_histogram.accumulators import Mean
 
 
@@ -144,20 +145,60 @@ class ReplicatedResponseAccumulator:
 
 class FastGaussianProcessResponseAccumulator(ResponseAccumulator):
     """
-    Accumulates responses using a Fast Gaussian Process fit.
+    Accumulates responses using a Fast Gaussian Process fit
     """
+
+    def __init__(self, fgp, cost=1):
+        # self._cost = cost
+        super().__init__(cost)
+        self._fgp = fgp
+        # self.n = 0
+
+    def add_responses(self, responses):
+        """Add multiple responses."""
+        for response in responses:
+            self._accumulator.add(response)
+        self._fgp.add_y_next(torch.tensor(responses).reshape((1, -1)))
+        self._fgp.fit(verbose=0)
+        # self.n += len(responses)
+        # print("self.n is now", self.n)
+
+    # @property
+    # def cost(self):
+    #     """Return the cost."""
+    #     return self._cost
 
     # @property
     # def mean(self):
     #     """Return the mean of responses."""
-    #     pass
+    #     return self._fgp.post_cubature_mean().numpy() if len(self) else np.nan
 
-    # @property
-    # def variance(self):
-    #     """Return the variance of responses."""
-    #     pass
+    @property
+    def variance(self):
+        """Return the variance of responses."""
+        # raise NotImplementedError()
+        return np.nan
 
     @property
     def squared_standard_error(self):
         """Return the squared standard error."""
-        pass
+        return self._fgp.post_cubature_var().numpy() if len(self) else np.nan
+        # if not len(self):
+        #     return np.nan
+        # else:
+        #     _, _, _, lb, ub = self._fgp.post_cubature_ci(confidence=0.68)
+        # return (ub.numpy() - lb.numpy()) / 2
+
+    # def __len__(self):
+    #     """Return the number of responses."""
+    #     return self.n
+
+    # @property
+    # def num_samples(self):
+    #     """Return the number of samples."""
+    #     return len(self)
+
+    # @property
+    # def num_samples_str(self):
+    #     """Return a string representation of sample count."""
+    #     return str(len(self))

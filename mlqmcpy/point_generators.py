@@ -52,4 +52,15 @@ class LDPointGenerator(AbstractPointGenerator):
         )
 
     def _generate(self, n: int):
-        return self.discrete_distribution.gen_samples(self.n, self.n + n)
+        return self.discrete_distribution.gen_samples(n_min=self.n, n_max=self.n + n)
+
+
+class FastGaussianProcessPointGenerator(AbstractPointGenerator):
+    """Concrete point set generator type for fast GP construction."""
+
+    def __init__(self, fgp):
+        super().__init__()
+        self.fgp = fgp
+
+    def _generate(self, n: int):
+        return self.fgp.get_x_next(self.n + n)  # FastGP needs total number of points

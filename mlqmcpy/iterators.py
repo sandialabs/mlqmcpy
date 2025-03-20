@@ -36,44 +36,47 @@ class AbstractMultilevelIterator(ABC):
             raise ValueError("A factory instance must be provided.")
         self._factory = factory
 
-        # Determine number of levels.
+        # Determine number of levels
         cost_per_level = np.atleast_1d(cost_per_level)
         self._num_levels = len(cost_per_level)
 
-        # Dimension per level.
+        # Dimension per level
         if isinstance(dimension, int):
             dimension_list = np.full(len(self), dimension, dtype=int)
         else:
             dimension_list = np.array(dimension, dtype=int)
 
-        # Seed per level.
-        if seed is None or isinstance(seed,int):
+        # Seed per level
+        if seed is None or isinstance(seed, int):
             seed = np.random.SeedSequence(seed)
         else:
-            assert isinstance(seed,np.random.SeedSequence), "require seed is None, an int, or a np.random.SeedSequence"
+            assert isinstance(
+                seed, np.random.SeedSequence
+            ), "require seed is None, an int, or a np.random.SeedSequence"
         seeds = seed.spawn(self._num_levels)
 
-        # Replications per level.
+        # Replications per level
         if isinstance(replications, int):
             replications_list = np.full(len(self), replications, dtype=int)
         else:
             replications_list = np.array(replications, dtype=int)
 
-        # Initialize response accumulators.
-        self._response_accumulators = [
-            self._factory.create_response_accumulator(
-                cost_per_level[level], replications_list[level]
-            )
-            for level in range(len(self))
-        ]
-
-        # Initialize point generators.
+        # Initialize point generators
         self._point_generators = [
             self._factory.create_point_generator(
                 discrete_distribution_type,
                 dimension_list[level],
                 seeds[level],
                 replications_list[level],
+            )
+            for level in range(len(self))
+        ]
+
+        # Initialize response accumulators
+        # NOTE: for FastGP, must initialize response accumulators AFTER point generators
+        self._response_accumulators = [
+            self._factory.create_response_accumulator(
+                cost_per_level[level], replications_list[level]
             )
             for level in range(len(self))
         ]
@@ -239,7 +242,7 @@ class GreedyMLQMCIterator(AbstractMultilevelIterator):
         super().__init__(*args, factory=factory, **kwargs)
 
 
-class FastGaussianProcessMLQMCIterator(AbstractMultilevelIterator):
+class GreedyFastGaussianProcessMLQMCIterator(AbstractMultilevelIterator):
     """Iterator for Fast Gaussian Process MLQMC using replications."""
 
     ALLOWED_KEYS = {

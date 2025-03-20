@@ -40,6 +40,18 @@ class GreedySampleAllocationProblemSolver(AbstractSampleAllocationProblemSolver)
     """
 
     def _step(self, accumulators, stopping_criterion):
+        # print("errors:", [
+        #         accumulator.squared_standard_error
+        #         for accumulator in accumulators
+        #     ])
+        # print("costs:", [
+        #         accumulator.cost
+        #         for accumulator in accumulators
+        #     ])
+        # print("ratios:", [
+        #         accumulator.squared_standard_error / accumulator.cost
+        #         for accumulator in accumulators
+        #     ])
         level_with_max_var = np.argmax(
             [
                 accumulator.squared_standard_error / accumulator.cost
