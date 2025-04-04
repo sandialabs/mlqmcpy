@@ -260,3 +260,127 @@ class GreedyFastGaussianProcessMLQMCIterator(AbstractMultilevelIterator):
                 raise ValueError(f"Invalid keyword argument provided: '{key}'")
         factory = GreedyFastGaussianProcessMLQMCFactory()
         super().__init__(*args, factory=factory, **kwargs)
+
+
+class FastMultiTaskGaussianProcessMLQMCIterator(AbstractMultilevelIterator):
+    """Iterator for Fast MultiTask Gaussian Process MLQMC."""
+    def __init__(
+        self,
+        dimension,
+        cost_per_level=1,
+        initial_sample_size=8,
+        max_budget=None,
+        #error_tolerance=None,
+        seed=None,
+        #replications=8,
+        discrete_distribution_type=None,
+        #factory: AbstractMultilevelFactory = None,
+    ):
+        assert isinstance(dimension,int), "FastMultiTaskGaussianProcessMLQMCIterator requires the dimension is the same for each level"
+
+        cost_per_level = np.atleast_1d(cost_per_level)
+        assert cost_per_level.ndim==1, "np.atleast_1d(cost_per_level) should be 1d"
+        self.cost_per_level = cost_per_level
+
+        self._num_levels = len(cost_per_level)
+
+        initial_sample_size = np.atleast_1d(initial_sample_size).astype(int)
+        assert initial_sample_size.ndim==1 and (initial_sample_size>0).all(), "initial_sample_size must be positive ints"
+        if initial_sample_size.size==1:
+            initial_sample_size = initial_sample_size*np.ones(self._num_levels,dtype=int)
+        assert initial_sample_size.shape==(self._num_levels,), "initial_sample_size should have shape (%d,)"%self._num_levels
+        self.initial_sample_size = initial_sample_size
+
+        assert np.isscalar(max_budget) and max_budget>=0, "max_budget must be a positive scalar"
+        self.max_budget = max_budget
+
+        assert seed is None or isinstance(seed,int), "seed must be None or an int"
+
+        import qmcpy as qp
+        import fastgp
+        
+        if discrete_distribution_type==qp.Lattice or discrete_distribution_type is None:
+            FGPClass = fastgp.FastGPLattice
+        elif discrete_distribution_type==qp.DigitalNetB2:
+            FGPClass = fastgp.FastGPDigitalNetB2
+        else:
+            assert False, "require discrete_distribution_type in [None, qp.Lattice, qp.DigitalNetB2]"
+        self.fgp = FGPClass(dimension,seed_for_seq=seed,num_tasks=self._num_levels)
+
+        self.iteration = 0
+
+    def __next__(self):
+        """Generate new samples at each level; stop if converged."""
+        
+        import torch 
+
+        if self.iteration==0:
+            n = self.initial_sample_size
+        
+        elif self.iteration==1:
+            
+            n0 = self.fgp.n.numpy()
+            m0 = self.fgp.m.numpy()
+            remaining_budget = self.max_budget-self.cost
+            nnew_max = np.floor(remaining_budget/self.cost_per_level).astype(int)
+            m_max = np.floor(np.log2(n0+nnew_max)).astype(int)
+            n_max = 2**m_max
+            if (n_max<=n0).all():
+                raise StopIteration
+
+            m_feasible = [np.arange(m0[l],m_max[l]+1) for l in range(self._num_levels)]
+            #num_m_feasible = torch.tensor([len(m_feasible[l]) for l in range(self._num_levels)])
+            #num_feasible_combs = num_m_feasible.prod()
+
+            mfmesh = np.meshgrid(*m_feasible)
+            mf_comb = np.vstack([mfmesh_l.flatten() for mfmesh_l in mfmesh]).T
+            nf_comb = 2**mf_comb
+            nf_comb_cost = (nf_comb*self.cost_per_level).sum(1)
+            cheap_comb = nf_comb_cost<=self.max_budget
+            mf_comb_cheap = mf_comb[cheap_comb]
+            #mf_comb_expensive = mf_comb[~cheap_comb]
+
+            boundary = (((2**(mf_comb_cheap[:,None,:]+np.eye(self._num_levels,dtype=int)))*self.cost_per_level).sum(-1)>self.max_budget).all(-1)
+            #num_boundary = boundary.sum()
+            mf_comb_cheap_boundary = mf_comb_cheap[boundary]
+            nf_comb_cheap_boundary = 2**mf_comb_cheap_boundary
+
+            pcvars = np.array([self.fgp.post_cubature_var(task=(self._num_levels-1),n=torch.from_numpy(nf_comb_cheap_boundary[i])).item() for i in range(len(nf_comb_cheap_boundary))])
+            imin = pcvars.argmin()
+            #pcvar_min = pcvars[imin]
+            n = nf_comb_cheap_boundary[imin]
+        
+        else:
+            raise StopIteration
+        
+        x_next = self.fgp.get_x_next(n=torch.from_numpy(n))
+        samples_dict = {} 
+        for level in range(self._num_levels):
+            x_next_level = x_next[level].numpy()
+            if x_next_level.size>0:
+                samples_dict[level] = x_next_level
+                
+        self.iteration += 1
+        
+        return samples_dict
+    
+    def update(self, all_responses):
+        """Update accumulators with new responses."""
+
+        import torch
+
+        tasks = list(all_responses.keys())
+        y_next = [torch.tensor(all_responses[task]) for task in tasks]
+        self.fgp.add_y_next(y_next,torch.tensor(tasks))
+        self.fgp.fit(verbose=0)
+    
+    @property
+    def standard_error(self):
+        """Return the combined standard error across levels."""
+
+        return np.sqrt(self.fgp.post_cubature_var(task=self._num_levels-1).item())
+    
+    @property
+    def cost(self):
+        """Return the total cost across levels."""
+        return (self.fgp.n.numpy()*self.cost_per_level).sum().item()
