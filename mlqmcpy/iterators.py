@@ -372,7 +372,12 @@ class FastMultiTaskGaussianProcessMLQMCIterator(AbstractMultilevelIterator):
         tasks = list(all_responses.keys())
         y_next = [torch.tensor(all_responses[task]) for task in tasks]
         self.fgp.add_y_next(y_next,torch.tensor(tasks))
-        self.fgp.fit(verbose=0)
+        data = self.fgp.fit(verbose=0)
+    
+    @property
+    def mean(self):
+        """Return the total mean across levels."""
+        return self.fgp.post_cubature_mean(task=self._num_levels-1).item()
     
     @property
     def standard_error(self):
@@ -384,3 +389,4 @@ class FastMultiTaskGaussianProcessMLQMCIterator(AbstractMultilevelIterator):
     def cost(self):
         """Return the total cost across levels."""
         return (self.fgp.n.numpy()*self.cost_per_level).sum().item()
+    

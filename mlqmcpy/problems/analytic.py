@@ -35,6 +35,7 @@ def analytic(level, samples=None):
     """
 
     samples = np.atleast_2d(samples)
+    assert samples.shape[1]==2
     return np.sin(samples[:, 0]) + 0.5**level * np.sin(samples[:, 1])
 
 
