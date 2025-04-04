@@ -130,13 +130,13 @@ class GreedyFastGaussianProcessMLQMCFactory(AbstractMultilevelFactory):
         if discrete_distribution_type == Lattice:
             self.fgp_list.append(
                 FastGPLattice(
-                    seq=Lattice(dimension=dimension, seed=seed),
+                    seqs=Lattice(dimension=dimension, seed=seed),
                 )
             )
         else:
             self.fgp_list.append(
                 FastGPDigitalNetB2(
-                    seq=DigitalNetB2(dimension=dimension, seed=seed),
+                    seqs=DigitalNetB2(dimension=dimension, seed=seed),
                 )
             )
         return FastGaussianProcessPointGenerator(self.fgp_list[-1])

@@ -158,7 +158,7 @@ class FastGaussianProcessResponseAccumulator(ResponseAccumulator):
         """Add multiple responses."""
         for response in responses:
             self._accumulator.add(response)
-        self._fgp.add_y_next(torch.tensor(responses).reshape((1, -1)))
+        self._fgp.add_y_next(torch.tensor(responses))
         self._fgp.fit(verbose=0)
         # self.n += len(responses)
         # print("self.n is now", self.n)
