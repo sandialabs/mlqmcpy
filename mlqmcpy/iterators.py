@@ -308,7 +308,7 @@ class FastMultiTaskGaussianProcessMLQMCIterator(AbstractMultilevelIterator):
             FGPClass = fastgp.FastGPDigitalNetB2
         else:
             assert False, "require discrete_distribution_type in [None, qp.Lattice, qp.DigitalNetB2]"
-        self.fgp = FGPClass(dimension,seed_for_seq=seed,num_tasks=self._num_levels,device=self.device,compile_fts=True)
+        self.fgp = FGPClass(dimension,seed_for_seq=seed,num_tasks=self._num_levels,device=self.device,compile_fts=False)
 
         self.iteration = 0
 
