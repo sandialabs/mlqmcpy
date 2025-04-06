@@ -276,6 +276,9 @@ class FastMultiTaskGaussianProcessMLQMCIterator(AbstractMultilevelIterator):
         discrete_distribution_type=None,
         #factory: AbstractMultilevelFactory = None,
     ):
+        import torch 
+        self.device = "cuda" if torch.cuda.is_available() else "cpu"
+        
         assert isinstance(dimension,int), "FastMultiTaskGaussianProcessMLQMCIterator requires the dimension is the same for each level"
 
         cost_per_level = np.atleast_1d(cost_per_level)
@@ -305,9 +308,10 @@ class FastMultiTaskGaussianProcessMLQMCIterator(AbstractMultilevelIterator):
             FGPClass = fastgp.FastGPDigitalNetB2
         else:
             assert False, "require discrete_distribution_type in [None, qp.Lattice, qp.DigitalNetB2]"
-        self.fgp = FGPClass(dimension,seed_for_seq=seed,num_tasks=self._num_levels)
+        self.fgp = FGPClass(dimension,seed_for_seq=seed,num_tasks=self._num_levels,device=self.device,compile_fts=True)
 
         self.iteration = 0
+
 
     def __next__(self):
         """Generate new samples at each level; stop if converged."""
@@ -319,8 +323,8 @@ class FastMultiTaskGaussianProcessMLQMCIterator(AbstractMultilevelIterator):
         
         elif self.iteration==1:
             
-            n0 = self.fgp.n.numpy()
-            m0 = self.fgp.m.numpy()
+            n0 = self.fgp.n.cpu().numpy()
+            m0 = self.fgp.m.cpu().numpy()
             remaining_budget = self.max_budget-self.cost
             nnew_max = np.floor(remaining_budget/self.cost_per_level).astype(int)
             m_max = np.floor(np.log2(n0+nnew_max)).astype(int)
@@ -345,7 +349,7 @@ class FastMultiTaskGaussianProcessMLQMCIterator(AbstractMultilevelIterator):
             mf_comb_cheap_boundary = mf_comb_cheap[boundary]
             nf_comb_cheap_boundary = 2**mf_comb_cheap_boundary
 
-            pcvars = np.array([self.fgp.post_cubature_var(task=(self._num_levels-1),n=torch.from_numpy(nf_comb_cheap_boundary[i])).item() for i in range(len(nf_comb_cheap_boundary))])
+            pcvars = np.array([self.fgp.post_cubature_var(task=(self._num_levels-1),n=torch.from_numpy(nf_comb_cheap_boundary[i]).to(self.device)).item() for i in range(len(nf_comb_cheap_boundary))])
             imin = pcvars.argmin()
             #pcvar_min = pcvars[imin]
             n = nf_comb_cheap_boundary[imin]
@@ -353,10 +357,10 @@ class FastMultiTaskGaussianProcessMLQMCIterator(AbstractMultilevelIterator):
         else:
             raise StopIteration
         
-        x_next = self.fgp.get_x_next(n=torch.from_numpy(n))
+        x_next = self.fgp.get_x_next(n=torch.from_numpy(n).to(self.device))
         samples_dict = {} 
         for level in range(self._num_levels):
-            x_next_level = x_next[level].numpy()
+            x_next_level = x_next[level].cpu().numpy()
             if x_next_level.size>0:
                 samples_dict[level] = x_next_level
                 
@@ -370,9 +374,12 @@ class FastMultiTaskGaussianProcessMLQMCIterator(AbstractMultilevelIterator):
         import torch
 
         tasks = list(all_responses.keys())
-        y_next = [torch.tensor(all_responses[task]) for task in tasks]
-        self.fgp.add_y_next(y_next,torch.tensor(tasks))
-        data = self.fgp.fit(verbose=0)
+        y_next = [torch.tensor(all_responses[task]).to(self.device) for task in tasks]
+        self.fgp.add_y_next(y_next,torch.tensor(tasks).to(self.device))
+        data = self.fgp.fit(
+            verbose = 0,
+            stop_crit_improvement_threshold = 10,
+        )
     
     @property
     def mean(self):
@@ -388,5 +395,5 @@ class FastMultiTaskGaussianProcessMLQMCIterator(AbstractMultilevelIterator):
     @property
     def cost(self):
         """Return the total cost across levels."""
-        return (self.fgp.n.numpy()*self.cost_per_level).sum().item()
+        return (self.fgp.n.cpu().numpy()*self.cost_per_level).sum().item()
     
