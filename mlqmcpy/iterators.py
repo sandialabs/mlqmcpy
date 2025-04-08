@@ -267,14 +267,15 @@ class FastMultiTaskGaussianProcessMLQMCIterator(AbstractMultilevelIterator):
     def __init__(
         self,
         dimension,
-        cost_per_level=1,
-        initial_sample_size=8,
-        max_budget=None,
-        #error_tolerance=None,
-        seed=None,
-        #replications=8,
-        discrete_distribution_type=None,
+        cost_per_level = 1,
+        initial_sample_size = 8,
+        max_budget = None,
+        #error_tolerance = None,
+        seed = None,
+        #replications = 8,
+        discrete_distribution_type = None,
         #factory: AbstractMultilevelFactory = None,
+        budget_scheme = "greedy"
     ):
         import torch 
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -308,54 +309,83 @@ class FastMultiTaskGaussianProcessMLQMCIterator(AbstractMultilevelIterator):
             FGPClass = fastgp.FastGPDigitalNetB2
         else:
             assert False, "require discrete_distribution_type in [None, qp.Lattice, qp.DigitalNetB2]"
-        self.fgp = FGPClass(dimension,seed_for_seq=seed,num_tasks=self._num_levels,device=self.device,compile_fts=False)
+        self.fgp = FGPClass(
+            seqs = dimension,
+            seed_for_seq = seed,
+            num_tasks = self._num_levels,
+            device = self.device,
+            compile_fts = False,
+            rank_factor_task_kernel=self._num_levels)
 
         self.iteration = 0
 
+        assert budget_scheme in ["full","greedy"]
+        self.max_iterations = 1 if budget_scheme=="full" else np.inf
+        self.budget_scheme = budget_scheme
 
+    def _get_next_n(self, future_budget):
+        import torch 
+        max_budget = self.cost+future_budget
+
+        n0 = self.fgp.n.cpu().numpy()
+        m0 = self.fgp.m.cpu().numpy()
+        
+        nnew_max = np.floor(future_budget/self.cost_per_level).astype(int)
+        m_max = np.floor(np.log2(n0+nnew_max)).astype(int)
+        n_max = 2**m_max
+        if (n_max<=n0).all():
+            raise StopIteration
+
+        m_feasible = [np.arange(m0[l],m_max[l]+1) for l in range(self._num_levels)]
+        #num_m_feasible = torch.tensor([len(m_feasible[l]) for l in range(self._num_levels)])
+        #num_feasible_combs = num_m_feasible.prod()
+
+        mfmesh = np.meshgrid(*m_feasible)
+        mf_comb = np.vstack([mfmesh_l.flatten() for mfmesh_l in mfmesh]).T
+        nf_comb = 2**mf_comb
+        nf_comb_cost = (nf_comb*self.cost_per_level).sum(1)
+        cheap_comb = nf_comb_cost<=max_budget
+        mf_comb_cheap = mf_comb[cheap_comb]
+        #mf_comb_expensive = mf_comb[~cheap_comb]
+
+        boundary = (((2**(mf_comb_cheap[:,None,:]+np.eye(self._num_levels,dtype=int)))*self.cost_per_level).sum(-1)>max_budget).all(-1)
+        #num_boundary = boundary.sum()
+        mf_comb_cheap_boundary = mf_comb_cheap[boundary]
+        nf_comb_cheap_boundary = 2**mf_comb_cheap_boundary
+
+        pcvars = np.array([self.fgp.post_cubature_var(task=(self._num_levels-1),n=torch.from_numpy(nf_comb_cheap_boundary[i]).to(self.device)).item() for i in range(len(nf_comb_cheap_boundary))])
+        imin = pcvars.argmin()
+        #pcvar_min = pcvars[imin]
+        n = nf_comb_cheap_boundary[imin]
+        return n 
+    
     def __next__(self):
         """Generate new samples at each level; stop if converged."""
         
         import torch 
 
+        if self.iteration>self.max_iterations or self.cost>=self.max_budget:
+            raise StopIteration
+        
         if self.iteration==0:
             n = self.initial_sample_size
         
-        elif self.iteration==1:
-            
-            n0 = self.fgp.n.cpu().numpy()
-            m0 = self.fgp.m.cpu().numpy()
+        elif self.budget_scheme=="full":
             remaining_budget = self.max_budget-self.cost
-            nnew_max = np.floor(remaining_budget/self.cost_per_level).astype(int)
-            m_max = np.floor(np.log2(n0+nnew_max)).astype(int)
-            n_max = 2**m_max
-            if (n_max<=n0).all():
-                raise StopIteration
+            n = self._get_next_n(remaining_budget)
 
-            m_feasible = [np.arange(m0[l],m_max[l]+1) for l in range(self._num_levels)]
-            #num_m_feasible = torch.tensor([len(m_feasible[l]) for l in range(self._num_levels)])
-            #num_feasible_combs = num_m_feasible.prod()
-
-            mfmesh = np.meshgrid(*m_feasible)
-            mf_comb = np.vstack([mfmesh_l.flatten() for mfmesh_l in mfmesh]).T
-            nf_comb = 2**mf_comb
-            nf_comb_cost = (nf_comb*self.cost_per_level).sum(1)
-            cheap_comb = nf_comb_cost<=self.max_budget
-            mf_comb_cheap = mf_comb[cheap_comb]
-            #mf_comb_expensive = mf_comb[~cheap_comb]
-
-            boundary = (((2**(mf_comb_cheap[:,None,:]+np.eye(self._num_levels,dtype=int)))*self.cost_per_level).sum(-1)>self.max_budget).all(-1)
-            #num_boundary = boundary.sum()
-            mf_comb_cheap_boundary = mf_comb_cheap[boundary]
-            nf_comb_cheap_boundary = 2**mf_comb_cheap_boundary
-
-            pcvars = np.array([self.fgp.post_cubature_var(task=(self._num_levels-1),n=torch.from_numpy(nf_comb_cheap_boundary[i]).to(self.device)).item() for i in range(len(nf_comb_cheap_boundary))])
-            imin = pcvars.argmin()
-            #pcvar_min = pcvars[imin]
-            n = nf_comb_cheap_boundary[imin]
-        
-        else:
-            raise StopIteration
+        else: # self.budget_scheme=="greedy"
+            remaining_budget = self.max_budget-self.cost
+            n_curr = self.fgp.n.cpu().numpy()
+            future_budgets = n_curr*self.cost_per_level
+            if (future_budgets<remaining_budget).all():
+                future_budget = future_budgets.max()
+            else:
+                if (future_budgets<=remaining_budget).any():
+                    future_budget = future_budgets[future_budgets<=remaining_budget].max()
+                else: # (future_budgets>remaining_budget).any()
+                    future_budget = future_budgets.min()
+            n = self._get_next_n(future_budget)
         
         x_next = self.fgp.get_x_next(n=torch.from_numpy(n).to(self.device))
         samples_dict = {} 
