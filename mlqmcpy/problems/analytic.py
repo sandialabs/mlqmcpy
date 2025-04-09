@@ -6,6 +6,10 @@ from .utils import multilevel
 @multilevel
 def analytic(level, samples=None):
     """
+    >>> rng = np.random.Generator(np.random.PCG64(7))
+    >>> analytic(level=10,samples=rng.uniform(low=0,high=1,size=(5,2)))
+    array([0.58593796, 0.70042386, 0.29642771, 0.00598011, 0.71575174])
+
     Analytic test function
 
         Q_\\ell = sin(X) + 0.5^\\ell * sin(Y),
@@ -33,10 +37,10 @@ def analytic(level, samples=None):
     Returns:
       Quantity of interest Q_\\ell.
     """
-
-    samples = np.atleast_2d(samples)
-    assert samples.shape[1]==2
-    return np.sin(samples[:, 0]) + 0.5**level * np.sin(samples[:, 1])
+    if samples is None: samples = np.random.rand(2)
+    assert isinstance(samples,np.ndarray) and samples.shape[-1]==2
+    assert samples.shape[-1]==2
+    return np.sin(samples[..., 0]) + 0.5**level * np.sin(samples[..., 1])
 
 
 # Define analytic solutions

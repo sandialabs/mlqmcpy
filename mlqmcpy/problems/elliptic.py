@@ -24,11 +24,11 @@ def _spsolve(main_diag, upper_diag, lower_diag, b):
 vec_spsolve = np.vectorize(_spsolve,signature="(n),(m),(m),(n)->(n)")
 
 # Elliptic PDE example
-def solve_elliptic_pde(level=5, coeffs=None):
+def solve_elliptic_pde(level=5, coeffs=None, return_data=False):
     """
     >>> rng = np.random.Generator(np.random.PCG64(7))
     >>> coeffs = rng.uniform(low=0,high=1,size=(2,8))
-    >>> sol,x,a,u = solve_elliptic_pde(level=1,coeffs=coeffs)
+    >>> sol,x,a,u = solve_elliptic_pde(level=1,coeffs=coeffs,return_data=True)
     >>> sol
     array([0.0874314 , 0.09523068])
     >>> x 
@@ -45,7 +45,7 @@ def solve_elliptic_pde(level=5, coeffs=None):
             0.07575316, 0.04705024]])
 
     >>> for i in range(coeffs.shape[0]):
-    ...     sol_i,x_i,a_i,u_i = solve_elliptic_pde(level=1,coeffs=coeffs[i])
+    ...     sol_i,x_i,a_i,u_i = solve_elliptic_pde(level=1,coeffs=coeffs[i],return_data=True)
     ...     assert (sol_i==sol[i]).all()
     ...     assert (x_i==x).all()
     ...     assert (a_i==a[i]).all()
@@ -92,10 +92,11 @@ def solve_elliptic_pde(level=5, coeffs=None):
     u = vec_spsolve(main_diag, upper_diag, lower_diag, b)
     # Find index closest to x = 0.5
     idx = np.argmin(np.abs(x - 0.5))
-    return u[...,idx], x, a_x, u
+    sol = u[...,idx]
+    return (sol, x, a_x, u) if return_data else sol
 
 # Define wrapper function
 @multilevel
 def elliptic(level, sample):
     """Wrapper that just returns the quantity of interest."""
-    return solve_elliptic_pde(level, sample)[0]
+    return solve_elliptic_pde(level, sample)
