@@ -275,7 +275,8 @@ class FastMultiTaskGaussianProcessMLQMCIterator(AbstractMultilevelIterator):
         #replications = 8,
         discrete_distribution_type = None,
         #factory: AbstractMultilevelFactory = None,
-        budget_scheme = "greedy"
+        #budget_scheme = "full",
+        budget_scheme = "greedy",
     ):
         import torch 
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -315,7 +316,9 @@ class FastMultiTaskGaussianProcessMLQMCIterator(AbstractMultilevelIterator):
             num_tasks = self._num_levels,
             device = self.device,
             compile_fts = False,
-            rank_factor_task_kernel=self._num_levels)
+            #rank_factor_task_kernel=self._num_levels,
+            #alpha = 4
+        )
 
         self.iteration = 0
 
@@ -408,7 +411,7 @@ class FastMultiTaskGaussianProcessMLQMCIterator(AbstractMultilevelIterator):
         self.fgp.add_y_next(y_next,torch.tensor(tasks).to(self.device))
         data = self.fgp.fit(
             verbose = 0,
-            stop_crit_improvement_threshold = 1000,
+            stop_crit_improvement_threshold = 100,
         )
     
     @property
