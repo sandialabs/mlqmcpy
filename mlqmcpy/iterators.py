@@ -408,7 +408,7 @@ class FastMultiTaskGaussianProcessMLQMCIterator(AbstractMultilevelIterator):
         self.fgp.add_y_next(y_next,torch.tensor(tasks).to(self.device))
         data = self.fgp.fit(
             verbose = 0,
-            stop_crit_improvement_threshold = 10,
+            stop_crit_improvement_threshold = 1000,
         )
     
     @property
