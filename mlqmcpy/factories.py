@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 
 import torch
-from fastgp import FastGPDigitalNetB2, FastGPLattice
+from fastgps import FastGPDigitalNetB2, FastGPLattice
 from qmcpy import DigitalNetB2, DiscreteDistribution, Lattice
 
 from .accumulators import (

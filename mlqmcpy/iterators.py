@@ -302,12 +302,12 @@ class FastMultiTaskGaussianProcessMLQMCIterator(AbstractMultilevelIterator):
         assert seed is None or isinstance(seed,int), "seed must be None or an int"
 
         import qmcpy as qp
-        import fastgp
+        import fastgps
         
         if discrete_distribution_type==qp.Lattice or discrete_distribution_type is None:
-            FGPClass = fastgp.FastGPLattice
+            FGPClass = fastgps.FastGPLattice
         elif discrete_distribution_type==qp.DigitalNetB2:
-            FGPClass = fastgp.FastGPDigitalNetB2
+            FGPClass = fastgps.FastGPDigitalNetB2
         else:
             assert False, "require discrete_distribution_type in [None, qp.Lattice, qp.DigitalNetB2]"
         self.fgp = FGPClass(
