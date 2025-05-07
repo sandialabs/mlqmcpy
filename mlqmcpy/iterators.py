@@ -7,6 +7,7 @@ from .factories import (
     AbstractMultilevelFactory,
     AnalyticMLMCFactory,
     GreedyFastGaussianProcessMLQMCFactory,
+    GreedyGaussianProcessMLQMCFactory,
     GreedyMLMCFactory,
     GreedyMLQMCFactory,
 )
@@ -261,6 +262,25 @@ class GreedyFastGaussianProcessMLQMCIterator(AbstractMultilevelIterator):
         factory = GreedyFastGaussianProcessMLQMCFactory()
         super().__init__(*args, factory=factory, **kwargs)
 
+class GreedyGaussianProcessMLQMCIterator(AbstractMultilevelIterator):
+    """Iterator for Fast Gaussian Process MLQMC using replications."""
+
+    ALLOWED_KEYS = {
+        "cost_per_level",
+        "initial_sample_size",
+        "max_budget",
+        "error_tolerance",
+        "seed",
+        "discrete_distribution_type",
+    }
+
+    def __init__(self, *args, **kwargs):
+        for key in kwargs.keys():
+            if key not in self.ALLOWED_KEYS:
+                raise ValueError(f"Invalid keyword argument provided: '{key}'")
+        factory = GreedyGaussianProcessMLQMCFactory()
+        super().__init__(*args, factory=factory, **kwargs)
+
 
 class FastMultiTaskGaussianProcessMLQMCIterator(AbstractMultilevelIterator):
     """Iterator for Fast MultiTask Gaussian Process MLQMC."""
@@ -410,8 +430,9 @@ class FastMultiTaskGaussianProcessMLQMCIterator(AbstractMultilevelIterator):
         y_next = [torch.tensor(all_responses[task]).to(self.device) for task in tasks]
         self.fgp.add_y_next(y_next,torch.tensor(tasks).to(self.device))
         data = self.fgp.fit(
+            loss_metric = "MLL",
             verbose = 0,
-            stop_crit_improvement_threshold = 100,
+            stop_crit_improvement_threshold = 1e-4,
         )
     
     @property

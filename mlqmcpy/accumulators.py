@@ -160,8 +160,9 @@ class FastGaussianProcessResponseAccumulator(ResponseAccumulator):
             self._accumulator.add(response)
         self._fgp.add_y_next(torch.tensor(responses))
         self._fgp.fit(
+            loss_metric = "MLL",
             verbose = 0,
-            stop_crit_improvement_threshold = 100,
+            stop_crit_improvement_threshold = 1e-4,
         )
         # self.n += len(responses)
         # print("self.n is now", self.n)
