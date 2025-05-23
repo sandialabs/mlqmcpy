@@ -52,14 +52,34 @@ class GreedySampleAllocationProblemSolver(AbstractSampleAllocationProblemSolver)
         #         accumulator.squared_standard_error / accumulator.cost
         #         for accumulator in accumulators
         #     ])
-        level_with_max_var = np.argmax(
-            [
-                accumulator.squared_standard_error / accumulator.cost
-                for accumulator in accumulators
+
+        levels,sses,costs,n,ntotal = np.array([
+                [l, accumulator.squared_standard_error, accumulator.cost, accumulator.num_samples, len(accumulator)]
+                for l,accumulator in enumerate(accumulators)
             ]
-        )
+        ).T
+
+        levels = levels.astype(int) 
+        n = n.astype(int) 
+        ntotal = ntotal.astype(int) 
+
+        current_costs = costs * ntotal
+        ratios = sses/current_costs
+
+        if isinstance(stopping_criterion, BudgetConstrained):
+            total_current_cost = np.sum(current_costs)
+            remaining_budget = stopping_criterion.max_budget - total_current_cost
+            feasible = current_costs <= remaining_budget # the current cost is also the next cost as we double the sample size on each level                                       
+            if not np.any(feasible):
+                raise StopIteration
+            ratios = ratios[feasible]
+            levels = levels[feasible] 
+            n = n[feasible]
+                                           
+        idx = np.argmax(ratios)
+
         new_sample_sizes = {
-            level_with_max_var: accumulators[level_with_max_var].num_samples
+            int(levels[idx]): int(n[idx])
         }
         return new_sample_sizes
 

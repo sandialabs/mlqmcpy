@@ -147,11 +147,12 @@ class GaussianProcessResponseAccumulator(ResponseAccumulator):
     Accumulates responses using a Fast Gaussian Process fit
     """
 
-    def __init__(self, fgp, cost, kwargs_fastgp_fit):
+    def __init__(self, fgp, cost, kwargs_fastgp_fit, refit_gps):
         # self._cost = cost
         super().__init__(cost)
         self._fgp = fgp
         self.kwargs_fastgp_fit = kwargs_fastgp_fit
+        self.refit_gps = refit_gps
         # self.n = 0
 
     def add_responses(self, responses):
@@ -160,7 +161,8 @@ class GaussianProcessResponseAccumulator(ResponseAccumulator):
         for response in responses:
             self._accumulator.add(response)
         self._fgp.add_y_next(torch.tensor(responses))
-        self._fgp.fit(**self.kwargs_fastgp_fit)
+        if self._fgp.n.item()==len(responses) or self.refit_gps: # either the first iteration or we are forced to refit GPs
+            self._fgp.fit(**self.kwargs_fastgp_fit)
         # self.n += len(responses)
         # print("self.n is now", self.n)
 

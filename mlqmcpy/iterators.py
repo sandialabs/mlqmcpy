@@ -276,6 +276,12 @@ class GreedyGaussianProcessMLQMCIterator(AbstractMultilevelIterator):
         else:
             fast = True
 
+        if "refit_gps" in kwargs:
+            refit_gps = kwargs["refit_gps"]
+            del kwargs["refit_gps"]
+        else:
+            refit_gps = True
+
         for key in kwargs.keys():
             if key not in self.ALLOWED_KEYS:
                 raise ValueError(f"Invalid keyword argument provided: '{key}'")
@@ -283,7 +289,8 @@ class GreedyGaussianProcessMLQMCIterator(AbstractMultilevelIterator):
         factory = GreedyGaussianProcessMLQMCFactory(
             kwargs_fastgp_construct = kwargs_fastgp_construct,
             kwargs_fastgp_fit = kwargs_fastgp_fit,
-            fast = fast)
+            fast = fast,
+            refit_gps = refit_gps)
         
         super().__init__(*args, factory=factory, **kwargs)
 
@@ -306,6 +313,7 @@ class MultiTaskGaussianProcessMLQMCIterator(AbstractMultilevelIterator):
         kwargs_fastgp_construct = {},
         kwargs_fastgp_fit = {},
         fast = True,
+        refit_gps = True,
     ):
 
         assert isinstance(dimension,int), "FastMultiTaskGaussianProcessMLQMCIterator requires the dimension is the same for each level"
@@ -353,6 +361,7 @@ class MultiTaskGaussianProcessMLQMCIterator(AbstractMultilevelIterator):
             num_tasks = self._num_levels,
             **kwargs_fastgp_construct
         )
+        self.refit_gps = refit_gps
 
         self.iteration = 0
 
@@ -445,7 +454,8 @@ class MultiTaskGaussianProcessMLQMCIterator(AbstractMultilevelIterator):
         tasks = list(all_responses.keys())
         y_next = [torch.tensor(all_responses[task]).to(self.fgp.device) for task in tasks]
         self.fgp.add_y_next(y_next,torch.tensor(tasks).to(self.fgp.device))
-        data = self.fgp.fit(**self.kwargs_fastgp_fit)
+        if self.iteration==1 or self.refit_gps:
+            data = self.fgp.fit(**self.kwargs_fastgp_fit)
     
     @property
     def mean(self):

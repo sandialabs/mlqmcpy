@@ -105,16 +105,17 @@ class GreedyMLQMCFactory(AbstractMultilevelFactory):
 class GreedyGaussianProcessMLQMCFactory(AbstractMultilevelFactory):
     """Concrete factory for a Greedy MLQMC iterator using Fast GPs."""
 
-    def __init__(self, kwargs_fastgp_construct, kwargs_fastgp_fit, fast):
+    def __init__(self, kwargs_fastgp_construct, kwargs_fastgp_fit, fast, refit_gps):
         self.fgp_list = []
         self.fgp_counter = 0
         self.kwargs_fastgp_construct = kwargs_fastgp_construct
         self.kwargs_fastgp_fit = kwargs_fastgp_fit
         self.fast = fast
+        self.refit_gps = refit_gps
 
     def create_response_accumulator(self, cost: float, replications: int):
         accumulator = GaussianProcessResponseAccumulator(
-            self.fgp_list[self.fgp_counter], cost, self.kwargs_fastgp_fit
+            self.fgp_list[self.fgp_counter], cost, self.kwargs_fastgp_fit, self.refit_gps
         )
         self.fgp_counter += 1
         return accumulator
