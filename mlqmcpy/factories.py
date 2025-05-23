@@ -1,11 +1,10 @@
 from abc import ABC, abstractmethod
 
-import torch
-from fastgps import FastGPDigitalNetB2, FastGPLattice, StandardGP
-from qmcpy import DigitalNetB2, DiscreteDistribution, Lattice
+import fastgps
+import qmcpy as qp
 
 from .accumulators import (
-    FastGaussianProcessResponseAccumulator,
+    GaussianProcessResponseAccumulator,
     ReplicatedResponseAccumulator,
     ResponseAccumulator,
 )
@@ -19,9 +18,6 @@ from .solvers import (
     GreedySampleAllocationProblemSolver,
 )
 
-torch.set_default_dtype(torch.float64)
-
-
 class AbstractMultilevelFactory(ABC):
     """Abstract factory interface for creating multilevel MLMC components."""
 
@@ -33,7 +29,7 @@ class AbstractMultilevelFactory(ABC):
     @abstractmethod
     def create_point_generator(
         self,
-        discrete_distribution_type: DiscreteDistribution,
+        discrete_distribution_type: qp.DiscreteDistribution,
         dimension: int,
         seed: int,
         replications: int,
@@ -55,7 +51,7 @@ class GreedyMLMCFactory(AbstractMultilevelFactory):
 
     def create_point_generator(
         self,
-        discrete_distribution_type: DiscreteDistribution,
+        discrete_distribution_type: qp.DiscreteDistribution,
         dimension: int,
         seed: int,
         replications: int,
@@ -74,7 +70,7 @@ class AnalyticMLMCFactory(AbstractMultilevelFactory):
 
     def create_point_generator(
         self,
-        discrete_distribution_type: DiscreteDistribution,
+        discrete_distribution_type: qp.DiscreteDistribution,
         dimension: int,
         seed: int,
         replications: int,
@@ -93,7 +89,7 @@ class GreedyMLQMCFactory(AbstractMultilevelFactory):
 
     def create_point_generator(
         self,
-        discrete_distribution_type: DiscreteDistribution,
+        discrete_distribution_type: qp.DiscreteDistribution,
         dimension: int,
         seed: int,
         replications: int,
@@ -106,74 +102,49 @@ class GreedyMLQMCFactory(AbstractMultilevelFactory):
         return GreedySampleAllocationProblemSolver(initial_sample_size_list)
 
 
-class GreedyFastGaussianProcessMLQMCFactory(AbstractMultilevelFactory):
-    """Concrete factory for a Greedy MLQMC iterator using Fast GPs."""
-
-    def __init__(self):
-        self.fgp_list = []
-        self.fgp_counter = 0
-
-    def create_response_accumulator(self, cost: float, replications: int):
-        accumulator = FastGaussianProcessResponseAccumulator(
-            self.fgp_list[self.fgp_counter], cost
-        )
-        self.fgp_counter += 1
-        return accumulator
-
-    def create_point_generator(
-        self,
-        discrete_distribution_type: DiscreteDistribution,
-        dimension: int,
-        seed: int,
-        replications: int,
-    ):
-        if discrete_distribution_type == Lattice:
-            self.fgp_list.append(
-                FastGPLattice(
-                    seqs=Lattice(dimension=dimension, seed=seed),
-                )
-            )
-        else:
-            self.fgp_list.append(
-                FastGPDigitalNetB2(
-                    seqs=DigitalNetB2(dimension=dimension, seed=seed),
-                    #alpha = 1,
-                )
-            )
-        return FastGaussianProcessPointGenerator(self.fgp_list[-1])
-
-    def create_sample_allocation_solver(self, initial_sample_size_list):
-        return GreedySampleAllocationProblemSolver(initial_sample_size_list)
-    
-
 class GreedyGaussianProcessMLQMCFactory(AbstractMultilevelFactory):
     """Concrete factory for a Greedy MLQMC iterator using Fast GPs."""
 
-    def __init__(self):
+    def __init__(self, kwargs_fastgp_construct, kwargs_fastgp_fit, fast):
         self.fgp_list = []
         self.fgp_counter = 0
+        self.kwargs_fastgp_construct = kwargs_fastgp_construct
+        self.kwargs_fastgp_fit = kwargs_fastgp_fit
+        self.fast = fast
 
     def create_response_accumulator(self, cost: float, replications: int):
-        accumulator = FastGaussianProcessResponseAccumulator(
-            self.fgp_list[self.fgp_counter], cost
+        accumulator = GaussianProcessResponseAccumulator(
+            self.fgp_list[self.fgp_counter], cost, self.kwargs_fastgp_fit
         )
         self.fgp_counter += 1
         return accumulator
 
     def create_point_generator(
         self,
-        discrete_distribution_type: DiscreteDistribution,
+        discrete_distribution_type: qp.DiscreteDistribution,
         dimension: int,
         seed: int,
         replications: int,
     ):
-        self.fgp_list.append(
-            StandardGP(
-                seqs=discrete_distribution_type(dimension=dimension, seed=seed),
-            )
+        import torch 
+        torch.set_default_dtype(torch.float64)
+
+        if self.fast and discrete_distribution_type==qp.Lattice:
+            GPClass = fastgps.FastGPLattice
+        elif self.fast and discrete_distribution_type==qp.DigitalNetB2:
+            GPClass = fastgps.FastGPDigitalNetB2
+        else:
+            assert not self.fast, "GreedyGaussianProcessMLQMCIterator does not support fast=True when discrete_distribution_type not in [qp.Lattice, qp.DigitalNetB2]"
+            GPClass = fastgps.StandardGP
+        
+        fgp = GPClass(
+            seqs=discrete_distribution_type(dimension=dimension, seed=seed),
+            **self.kwargs_fastgp_construct
         )
+        
+        self.fgp_list.append(fgp)
+
         return FastGaussianProcessPointGenerator(self.fgp_list[-1])
 
     def create_sample_allocation_solver(self, initial_sample_size_list):
         return GreedySampleAllocationProblemSolver(initial_sample_size_list)
-

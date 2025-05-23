@@ -1,5 +1,4 @@
 import numpy as np
-import torch
 from boost_histogram.accumulators import Mean
 
 
@@ -143,27 +142,25 @@ class ReplicatedResponseAccumulator:
         return str(self.num_replications) + " x " + str(self.num_samples)
 
 
-class FastGaussianProcessResponseAccumulator(ResponseAccumulator):
+class GaussianProcessResponseAccumulator(ResponseAccumulator):
     """
     Accumulates responses using a Fast Gaussian Process fit
     """
 
-    def __init__(self, fgp, cost=1):
+    def __init__(self, fgp, cost, kwargs_fastgp_fit):
         # self._cost = cost
         super().__init__(cost)
         self._fgp = fgp
+        self.kwargs_fastgp_fit = kwargs_fastgp_fit
         # self.n = 0
 
     def add_responses(self, responses):
         """Add multiple responses."""
+        import torch
         for response in responses:
             self._accumulator.add(response)
         self._fgp.add_y_next(torch.tensor(responses))
-        self._fgp.fit(
-            loss_metric = "MLL",
-            verbose = 0,
-            stop_crit_improvement_threshold = 1e-4,
-        )
+        self._fgp.fit(**self.kwargs_fastgp_fit)
         # self.n += len(responses)
         # print("self.n is now", self.n)
 

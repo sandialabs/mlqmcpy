@@ -6,7 +6,6 @@ from prettytable import PrettyTable
 from .factories import (
     AbstractMultilevelFactory,
     AnalyticMLMCFactory,
-    GreedyFastGaussianProcessMLQMCFactory,
     GreedyGaussianProcessMLQMCFactory,
     GreedyMLMCFactory,
     GreedyMLQMCFactory,
@@ -63,9 +62,12 @@ class AbstractMultilevelIterator(ABC):
             replications_list = np.array(replications, dtype=int)
 
         # Initialize point generators
+        
+        self.discrete_distribution_type = discrete_distribution_type
+
         self._point_generators = [
             self._factory.create_point_generator(
-                discrete_distribution_type,
+                self.discrete_distribution_type,
                 dimension_list[level],
                 seeds[level],
                 replications_list[level],
@@ -243,25 +245,6 @@ class GreedyMLQMCIterator(AbstractMultilevelIterator):
         super().__init__(*args, factory=factory, **kwargs)
 
 
-class GreedyFastGaussianProcessMLQMCIterator(AbstractMultilevelIterator):
-    """Iterator for Fast Gaussian Process MLQMC using replications."""
-
-    ALLOWED_KEYS = {
-        "cost_per_level",
-        "initial_sample_size",
-        "max_budget",
-        "error_tolerance",
-        "seed",
-        "discrete_distribution_type",
-    }
-
-    def __init__(self, *args, **kwargs):
-        for key in kwargs.keys():
-            if key not in self.ALLOWED_KEYS:
-                raise ValueError(f"Invalid keyword argument provided: '{key}'")
-        factory = GreedyFastGaussianProcessMLQMCFactory()
-        super().__init__(*args, factory=factory, **kwargs)
-
 class GreedyGaussianProcessMLQMCIterator(AbstractMultilevelIterator):
     """Iterator for Fast Gaussian Process MLQMC using replications."""
 
@@ -275,14 +258,37 @@ class GreedyGaussianProcessMLQMCIterator(AbstractMultilevelIterator):
     }
 
     def __init__(self, *args, **kwargs):
+        if "kwargs_fastgp_construct" in kwargs:
+            kwargs_fastgp_construct = kwargs["kwargs_fastgp_construct"] 
+            del kwargs["kwargs_fastgp_construct"]
+        else:
+            kwargs_fastgp_construct = {}
+
+        if "kwargs_fastgp_fit" in kwargs:
+            kwargs_fastgp_fit = kwargs["kwargs_fastgp_fit"]
+            del kwargs["kwargs_fastgp_fit"]
+        else:
+            kwargs_fastgp_fit = {}
+        
+        if "fast" in kwargs:
+            fast = kwargs["fast"]
+            del kwargs["fast"]
+        else:
+            fast = True
+
         for key in kwargs.keys():
             if key not in self.ALLOWED_KEYS:
                 raise ValueError(f"Invalid keyword argument provided: '{key}'")
-        factory = GreedyGaussianProcessMLQMCFactory()
+
+        factory = GreedyGaussianProcessMLQMCFactory(
+            kwargs_fastgp_construct = kwargs_fastgp_construct,
+            kwargs_fastgp_fit = kwargs_fastgp_fit,
+            fast = fast)
+        
         super().__init__(*args, factory=factory, **kwargs)
 
 
-class FastMultiTaskGaussianProcessMLQMCIterator(AbstractMultilevelIterator):
+class MultiTaskGaussianProcessMLQMCIterator(AbstractMultilevelIterator):
     """Iterator for Fast MultiTask Gaussian Process MLQMC."""
     def __init__(
         self,
@@ -297,10 +303,11 @@ class FastMultiTaskGaussianProcessMLQMCIterator(AbstractMultilevelIterator):
         #factory: AbstractMultilevelFactory = None,
         #budget_scheme = "full",
         budget_scheme = "greedy",
+        kwargs_fastgp_construct = {},
+        kwargs_fastgp_fit = {},
+        fast = True,
     ):
-        import torch 
-        self.device = "cuda" if torch.cuda.is_available() else "cpu"
-        
+
         assert isinstance(dimension,int), "FastMultiTaskGaussianProcessMLQMCIterator requires the dimension is the same for each level"
 
         cost_per_level = np.atleast_1d(cost_per_level)
@@ -324,21 +331,27 @@ class FastMultiTaskGaussianProcessMLQMCIterator(AbstractMultilevelIterator):
         import qmcpy as qp
         import fastgps
         
-        if discrete_distribution_type==qp.Lattice or discrete_distribution_type is None:
-            FGPClass = fastgps.FastGPLattice
-        elif discrete_distribution_type==qp.DigitalNetB2:
-            FGPClass = fastgps.FastGPDigitalNetB2
+        if discrete_distribution_type is None:
+            discrete_distribution_type==qp.DigitalNetB2
+
+        if fast and discrete_distribution_type==qp.Lattice:
+            GPClass = fastgps.FastGPLattice
+        elif fast and discrete_distribution_type==qp.DigitalNetB2:
+            GPClass = fastgps.FastGPDigitalNetB2
         else:
-            assert False, "require discrete_distribution_type in [None, qp.Lattice, qp.DigitalNetB2]"
-        self.fgp = FGPClass(
-            seqs = dimension,
-            seed_for_seq = seed,
+            assert not fast, "MultiTaskGaussianProcessMLQMCIterator does not support fast=True when discrete_distribution_type not in [qp.Lattice, qp.DigitalNetB2]"
+            GPClass = fastgps.StandardGP
+        
+        self.discrete_distribution_type = discrete_distribution_type
+
+        import torch 
+        torch.set_default_dtype(torch.float64)
+
+        kwargs_discrete_distrib = {"randomize":"DS"} if GPClass==fastgps.FastGPDigitalNetB2 else {}
+        self.fgp = GPClass(
+            seqs = np.array([discrete_distribution_type(dimension,seed=seed,**kwargs_discrete_distrib) for seed in np.random.SeedSequence(seed).spawn(self._num_levels)],dtype=object),
             num_tasks = self._num_levels,
-            device = self.device,
-            compile_fts = False,
-            #alpha = 1,
-            #rank_factor_task_kernel=self._num_levels,
-            #alpha = 4
+            **kwargs_fastgp_construct
         )
 
         self.iteration = 0
@@ -346,6 +359,8 @@ class FastMultiTaskGaussianProcessMLQMCIterator(AbstractMultilevelIterator):
         assert budget_scheme in ["full","greedy"]
         self.max_iterations = 1 if budget_scheme=="full" else np.inf
         self.budget_scheme = budget_scheme
+        
+        self.kwargs_fastgp_fit = kwargs_fastgp_fit
 
     def _get_next_n(self, future_budget):
         import torch 
@@ -377,7 +392,7 @@ class FastMultiTaskGaussianProcessMLQMCIterator(AbstractMultilevelIterator):
         mf_comb_cheap_boundary = mf_comb_cheap[boundary]
         nf_comb_cheap_boundary = 2**mf_comb_cheap_boundary
 
-        pcvars = np.array([self.fgp.post_cubature_var(task=(self._num_levels-1),n=torch.from_numpy(nf_comb_cheap_boundary[i]).to(self.device)).item() for i in range(len(nf_comb_cheap_boundary))])
+        pcvars = np.array([self.fgp.post_cubature_var(task=(self._num_levels-1),n=torch.from_numpy(nf_comb_cheap_boundary[i]).to(self.fgp.device)).item() for i in range(len(nf_comb_cheap_boundary))])
         imin = pcvars.argmin()
         #pcvar_min = pcvars[imin]
         n = nf_comb_cheap_boundary[imin]
@@ -411,7 +426,7 @@ class FastMultiTaskGaussianProcessMLQMCIterator(AbstractMultilevelIterator):
                     future_budget = future_budgets.min()
             n = self._get_next_n(future_budget)
         
-        x_next = self.fgp.get_x_next(n=torch.from_numpy(n).to(self.device))
+        x_next = self.fgp.get_x_next(n=torch.from_numpy(n).to(self.fgp.device))
         samples_dict = {} 
         for level in range(self._num_levels):
             x_next_level = x_next[level].cpu().numpy()
@@ -428,13 +443,9 @@ class FastMultiTaskGaussianProcessMLQMCIterator(AbstractMultilevelIterator):
         import torch
 
         tasks = list(all_responses.keys())
-        y_next = [torch.tensor(all_responses[task]).to(self.device) for task in tasks]
-        self.fgp.add_y_next(y_next,torch.tensor(tasks).to(self.device))
-        data = self.fgp.fit(
-            loss_metric = "MLL",
-            verbose = 0,
-            stop_crit_improvement_threshold = 1e-4,
-        )
+        y_next = [torch.tensor(all_responses[task]).to(self.fgp.device) for task in tasks]
+        self.fgp.add_y_next(y_next,torch.tensor(tasks).to(self.fgp.device))
+        data = self.fgp.fit(**self.kwargs_fastgp_fit)
     
     @property
     def mean(self):
