@@ -336,6 +336,7 @@ class FastMultiTaskGaussianProcessMLQMCIterator(AbstractMultilevelIterator):
             num_tasks = self._num_levels,
             device = self.device,
             compile_fts = False,
+            #alpha = 1,
             #rank_factor_task_kernel=self._num_levels,
             #alpha = 4
         )

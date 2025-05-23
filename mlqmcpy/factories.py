@@ -137,6 +137,7 @@ class GreedyFastGaussianProcessMLQMCFactory(AbstractMultilevelFactory):
             self.fgp_list.append(
                 FastGPDigitalNetB2(
                     seqs=DigitalNetB2(dimension=dimension, seed=seed),
+                    #alpha = 1,
                 )
             )
         return FastGaussianProcessPointGenerator(self.fgp_list[-1])
