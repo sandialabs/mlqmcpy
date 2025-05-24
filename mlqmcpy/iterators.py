@@ -170,7 +170,7 @@ class AbstractMultilevelIterator(ABC):
 
     @property
     def total_samples_per_level(self):
-        return np.array([len(accumulator) for accumulator in self._response_accumulators])
+        return np.array([len(accumulator) for accumulator in self._response_accumulators],dtype=int)
     
     def print_status(self):
         """Print status summary in a table format."""
@@ -479,5 +479,5 @@ class MultiTaskGaussianProcessMLQMCIterator(AbstractMultilevelIterator):
     
     @property
     def total_samples_per_level(self):
-        return self.fgp.n.numpy()
+        return self.fgp.n.numpy().astype(int)
     
