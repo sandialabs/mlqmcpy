@@ -1,5 +1,5 @@
 import numpy as np
-from boost_histogram.accumulators import Mean
+#from boost_histogram.accumulators import Mean
 
 
 class Accumulator:
@@ -8,34 +8,39 @@ class Accumulator:
     """
 
     def __init__(self):
-        self._accumulator = Mean()
+        #self._accumulator = Mean()
+        self._accumulator = np.empty(0)#Mean()
 
     def add(self, sample):
         """Add a sample."""
-        self._accumulator(sample)
+        #self._accumulator(sample)
+        self._accumulator = np.append(self._accumulator,sample)
 
     @property
     def mean(self):
         """Return the current mean or NaN if no samples."""
-        return self._accumulator.value if len(self) else np.nan
+        #return self._accumulator.value if len(self) else np.nan
+        return self._accumulator.mean() if len(self) else np.nan
 
     @property
     def variance(self):
         """Return the current variance or NaN if no samples."""
-        return self._accumulator.variance if len(self) else np.nan
+        #return self._accumulator.variance if len(self) else np.nan
+        return self._accumulator.var() if len(self) else np.nan
 
     def __len__(self):
         """Return the number of samples."""
-        return int(self._accumulator.count)
+        #return int(self._accumulator.count)
+        return int(len(self._accumulator))
 
     @property
     def squared_standard_error(self):
         """Return the squared standard error or NaN if no samples."""
         return self.variance / len(self) if len(self) else np.nan
 
-    def reset(self):
-        """Reset the accumulator."""
-        self._accumulator = Mean()
+    # def reset(self):
+    #     """Reset the accumulator."""
+    #     self._accumulator = Mean()
 
 
 class ResponseAccumulator:
