@@ -24,4 +24,4 @@ def dakota_evaluate(dakota_in, **kwargs):
         )
 
         # Extract results
-        return np.genfromtxt(os.path.join(tmp, "output.txt"), comments="%")
+        return np.genfromtxt(os.path.join(tmp, "output.txt"), comments="%")[:, -1]

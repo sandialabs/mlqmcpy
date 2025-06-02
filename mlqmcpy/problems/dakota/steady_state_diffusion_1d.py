@@ -2,9 +2,11 @@ import os
 
 import numpy as np
 
+from ..utils import multilevel
 from .dakota_evaluate import dakota_evaluate
 
 
+@multilevel
 def steady_state_diffusion_1d(
     level,
     points,
@@ -45,4 +47,4 @@ def steady_state_diffusion_1d(
         list_of_points=list_of_points,
         variables=variables,
         problem="'steady_state_diffusion_1d'",
-    )[:, -1]
+    )
