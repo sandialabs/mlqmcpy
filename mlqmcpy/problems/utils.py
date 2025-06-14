@@ -10,10 +10,10 @@ def multilevel(func):
 
     """
 
-    def ml_func(level, sample):
+    def ml_func(level, sample, **kwargs):
         qoi = func(level, sample)
         if level > 0:
-            qoi -= func(level - 1, sample)
+            qoi -= func(level - 1, sample, **kwargs)
         return qoi
 
     func.ml = ml_func
