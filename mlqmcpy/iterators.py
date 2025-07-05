@@ -308,7 +308,7 @@ class GreedyGaussianProcessMLQMCIterator(AbstractMultilevelIterator):
         super().__init__(*args, factory=factory, **kwargs)
 
 
-class MultiTaskGaussianProcessMLQMCIterator(AbstractMultilevelIterator):
+class AbstractMultiTaskGaussianProcessMLQMCIterator(AbstractMultilevelIterator):
     """Iterator for Fast MultiTask Gaussian Process MLQMC."""
 
     def __init__(
@@ -447,20 +447,12 @@ class MultiTaskGaussianProcessMLQMCIterator(AbstractMultilevelIterator):
         mf_comb_cheap_boundary = mf_comb_cheap[boundary]
         nf_comb_cheap_boundary = 2**mf_comb_cheap_boundary
 
-        pcvars = np.array(
-            [
-                self.fgp.post_cubature_var(
-                    task=(self._num_levels - 1),
-                    n=torch.from_numpy(nf_comb_cheap_boundary[i]).to(self.fgp.device),
-                ).item()
-                for i in range(len(nf_comb_cheap_boundary))
-            ]
-        )
+        pcvars = np.array([self.projected_post_cubature_var(nf_comb_cheap_boundary[i]) for i in range(len(nf_comb_cheap_boundary))])
         imin = pcvars.argmin()
         # pcvar_min = pcvars[imin]
         n = nf_comb_cheap_boundary[imin]
         return n
-
+    
     def __next__(self):
         """Generate new samples at each level; stop if converged."""
 
@@ -515,6 +507,25 @@ class MultiTaskGaussianProcessMLQMCIterator(AbstractMultilevelIterator):
         if self.iteration == 1 or self.refit_gps:
             # data = self.fgp.fit(**self.kwargs_fastgp_fit)
             self.fgp.fit(**self.kwargs_fastgp_fit)
+    
+    @property
+    def cost(self):
+        """Return the total cost across levels."""
+        return (self.fgp.n.cpu().numpy() * self.cost_per_level).sum().item()
+    
+    @property
+    def total_samples_per_level(self):
+        return self.fgp.n.numpy().astype(int)
+    
+    def print_status(self):
+        """Print status summary in a table format."""
+        table = PrettyTable()
+        table.field_names = ["number of samples", "mean", "variance", "standard error"]
+        print("\t number of samples: %s"%self.total_samples_per_level)
+        print("\t              mean: %s"%self.mean)
+        print("\t    standard error: %s"%self.standard_error)
+
+class MultiTaskGaussianProcessMLQMCIteratorFunction(AbstractMultiTaskGaussianProcessMLQMCIterator):
 
     @property
     def mean(self):
@@ -524,14 +535,31 @@ class MultiTaskGaussianProcessMLQMCIterator(AbstractMultilevelIterator):
     @property
     def standard_error(self):
         """Return the combined standard error across levels."""
-
         return np.sqrt(self.fgp.post_cubature_var(task=self._num_levels - 1).item())
 
-    @property
-    def cost(self):
-        """Return the total cost across levels."""
-        return (self.fgp.n.cpu().numpy() * self.cost_per_level).sum().item()
+    def projected_post_cubature_var(self, n):
+        assert n.shape==(self.fgp.num_tasks,)
+        import torch 
+        return self.fgp.post_cubature_var(
+            task = (self._num_levels - 1),
+            n = torch.from_numpy(n).to(self.fgp.device),
+        ).item()
+
+class MultiTaskGaussianProcessMLQMCIteratorDifference(AbstractMultiTaskGaussianProcessMLQMCIterator):
 
     @property
-    def total_samples_per_level(self):
-        return self.fgp.n.numpy().astype(int)
+    def mean(self):
+        """Return the total mean across levels."""
+        return self.fgp.post_cubature_mean().sum().item()
+
+    @property
+    def standard_error(self):
+        """Return the combined standard error across levels."""
+        return np.sqrt(self.fgp.post_cubature_cov().sum()).item()
+
+    def projected_post_cubature_var(self, n):
+        assert n.shape==(self.fgp.num_tasks,)
+        import torch 
+        return self.fgp.post_cubature_cov(
+            n = torch.from_numpy(n).to(self.fgp.device),
+        ).sum().item()

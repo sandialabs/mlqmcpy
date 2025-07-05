@@ -3,7 +3,8 @@ from .iterators import (
     GreedyMLMCIterator,
     GreedyMLQMCIterator,
     GreedyGaussianProcessMLQMCIterator,
-    MultiTaskGaussianProcessMLQMCIterator,
+    MultiTaskGaussianProcessMLQMCIteratorFunction,
+    MultiTaskGaussianProcessMLQMCIteratorDifference,
 )
 from .problems.utils import multilevel
 
@@ -12,6 +13,7 @@ __all__ = [
     "GreedyMLMCIterator",
     "GreedyMLQMCIterator",
     "GreedyGaussianProcessMLQMCIterator",
-    "MultiTaskGaussianProcessMLQMCIterator",
+    "MultiTaskGaussianProcessMLQMCIteratorFunction",
+    "MultiTaskGaussianProcessMLQMCIteratorDifference",
     "multilevel",
 ]
