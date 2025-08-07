@@ -9,11 +9,14 @@ import os
 import shutil
 import gc
 import sys
+import multiprocessing
+
 
 
 def main(problem, dimension, num_levels, dataroot, trial_start, trial_end):
     assert trial_end>trial_start
     trials = trial_end-trial_start
+    file = open(dataroot+"log.%d.%d.txt"%(trial_start,trial_end),"w")
     # parameters 
     # max_budgets = 2**np.arange(8,15)
     max_budgets = 2**np.arange(9,12)
@@ -93,10 +96,10 @@ def main(problem, dimension, num_levels, dataroot, trial_start, trial_end):
     else:
         true_solution = problem(num_levels-1,qp.DigitalNetB2(dimension)(n_ref)).mean()
     cost_per_level = 2.**(np.arange(num_levels)-num_levels+1) # Rescale so that finest level has unit cost
-    print("max_budgets: %s"%max_budgets)
-    print("cost_per_level: %s"%str(cost_per_level))
-    print("true_solution = %.5e"%true_solution)
-    print()
+    file.write("max_budgets: %s\n"%max_budgets)
+    file.write("cost_per_level: %s\n"%str(cost_per_level))
+    file.write("true_solution = %.5e\n"%true_solution)
+    file.write("\n")
     costs = np.empty((len(zip_name_IteratorClass_kwargs),len(max_budgets),trials))
     means = np.empty((len(zip_name_IteratorClass_kwargs),len(max_budgets),trials))
     std_errors = np.empty((len(zip_name_IteratorClass_kwargs),len(max_budgets),trials))
@@ -105,7 +108,7 @@ def main(problem, dimension, num_levels, dataroot, trial_start, trial_end):
     for j in range(len(max_budgets)):
         max_budget = max_budgets[j]
         initial_budget = int(initial_cost_prop_max_budget*max_budget)
-        print("budget = %d, initial budget = %d"%(max_budget,initial_budget))
+        file.write("budget = %d, initial budget = %d\n"%(max_budget,initial_budget))
         if initial_sampling_alloc.upper()=="PROP":
             initial_sample_size_og = initial_budget/num_levels/cost_per_level
         elif initial_sampling_alloc.upper()=="EQUAL":
@@ -120,7 +123,7 @@ def main(problem, dimension, num_levels, dataroot, trial_start, trial_end):
             else:
                 initial_sample_size = 2**np.ceil(np.log2(initial_sample_size_og)).astype(int)
                 initial_cost = (initial_sample_size*cost_per_level).sum()
-            print("\t%s, \t initial_sample_size = %s, \tinitial cost = %.1f"%(name,str(initial_sample_size.tolist()),initial_cost))
+            file.write("\t%s, \t initial_sample_size = %s, \tinitial cost = %.1f\n"%(name,str(initial_sample_size.tolist()),initial_cost))
             for t in range(trials):
                 iterator = IteratorClass(
                     dimension,
@@ -145,12 +148,13 @@ def main(problem, dimension, num_levels, dataroot, trial_start, trial_end):
                 true_errors[i,j,t] = np.abs(true_solution-means[i,j,t])
                 samples_per_level[i,j,t] = iterator.total_samples_per_level.copy()
                 if verbose and t%verbose==0:
-                    print("\t\ttrial: %-6d iteration: %-6d cost: %-10d mean: %-15.3e std error: %-15.3e true error: %-15.3e time %-15d sample sizes %s"%\
+                    file.write("\t\ttrial: %-6d iteration: %-6d cost: %-10d mean: %-15.3e std error: %-15.3e true error: %-15.3e time %-15d sample sizes %s\n"%\
                     (t,iter,costs[i,j,t],means[i,j,t],std_errors[i,j,t],true_errors[i,j,t],int(np.ceil(time.perf_counter()-t0)),str(samples_per_level[i,j,t].tolist())))
-                #import psutil; process = psutil.Process(os.getpid()); print(f"Total program memory: {process.memory_info().rss / (1024 * 1024):.2f} MB")
+                #import psutil; process = psutil.Process(os.getpid()); file.write(f"Total program memory: {process.memory_info().rss / (1024 * 1024):.2f} MB\n")
                 # del iterator
                 # import gc; gc.collect()
-        print()
+        file.write("\n")
+    file.close()
     data = {
         "problem_name": problem.__name__,
         "dimension": dimension,
@@ -170,8 +174,9 @@ def main(problem, dimension, num_levels, dataroot, trial_start, trial_end):
     np.save(dataroot+"data.%d.%d.npy"%(trial_start,trial_end),data)
 
 if __name__=="__main__":
-    force_experiment = True
-    parallel = False
+    force_experiment = False
+    trials = 100
+    parallel = 10
     problem_dim_levels = (analytic,2,4)
     #problem_dim_levels = (borehole,8,2)
     #problem_dim_levels = (elliptic,8,4)
@@ -186,11 +191,21 @@ if __name__=="__main__":
     if os.path.exists(dataroot):
         shutil.rmtree(dataroot)
     os.makedirs(dataroot)
-    trials = 5
-    trial_blocks = [(i,i+1) for i in range(trials)]
-    if parallel:
-        assert False 
-    else:
+    assert parallel>0
+    bs = int(np.ceil(trials/parallel))
+    trial_blocks = [(i*bs,min(trials,(i+1)*bs)) for i in range(parallel)]
+    if parallel==1:
         for trial_start,trial_end in trial_blocks:
             # run experiments 
             main(problem, dimension, num_levels, dataroot, trial_start, trial_end)
+    else:
+        print("%d CPUs available, using parallel = %d CPUs"%(os.cpu_count(),parallel))
+        processes = []
+        for trial_start,trial_end in trial_blocks:
+            process = multiprocessing.Process(target=main, args=(problem, dimension, num_levels, dataroot, trial_start, trial_end))
+            processes.append(process)
+        for process in processes:
+            process.start()
+        for process in processes:
+            process.join()
+        
