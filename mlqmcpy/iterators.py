@@ -11,7 +11,7 @@ from .factories import (
     GreedyMLQMCFactory,
 )
 from .stopping_criteria import AccuracyConstrained, BudgetConstrained
-
+from copy import deepcopy
 
 class AbstractMultilevelIterator(ABC):
     """
@@ -276,6 +276,18 @@ class GreedyGaussianProcessMLQMCIterator(AbstractMultilevelIterator):
         else:
             kwargs_fastgp_construct = {}
 
+        if "kwargs_discrete_distrib_construct" in kwargs:
+            kwargs_discrete_distrib_construct = kwargs["kwargs_discrete_distrib_construct"]
+            del kwargs["kwargs_discrete_distrib_construct"]
+        else:
+            kwargs_discrete_distrib_construct = {}
+
+        if "kwargs_kernel_construct" in kwargs:
+            kwargs_kernel_construct = kwargs["kwargs_kernel_construct"]
+            del kwargs["kwargs_kernel_construct"]
+        else:
+            kwargs_kernel_construct = {}
+
         if "kwargs_fastgp_fit" in kwargs:
             kwargs_fastgp_fit = kwargs["kwargs_fastgp_fit"]
             del kwargs["kwargs_fastgp_fit"]
@@ -300,6 +312,8 @@ class GreedyGaussianProcessMLQMCIterator(AbstractMultilevelIterator):
 
         factory = GreedyGaussianProcessMLQMCFactory(
             kwargs_fastgp_construct=kwargs_fastgp_construct,
+            kwargs_discrete_distrib_construct=kwargs_discrete_distrib_construct,
+            kwargs_kernel_construct=kwargs_kernel_construct,
             kwargs_fastgp_fit=kwargs_fastgp_fit,
             fast=fast,
             refit_gps=refit_gps,
@@ -325,6 +339,9 @@ class AbstractMultiTaskGaussianProcessMLQMCIterator(AbstractMultilevelIterator):
         # budget_scheme = "full",
         budget_scheme="greedy",
         kwargs_fastgp_construct={},
+        kwargs_discrete_distrib_construct = {},
+        kwargs_kernel_construct = {},
+        kwargs_kernel_mt_construct = {},
         kwargs_fastgp_fit={},
         fast=True,
         refit_gps=True,
@@ -368,43 +385,34 @@ class AbstractMultiTaskGaussianProcessMLQMCIterator(AbstractMultilevelIterator):
 
         if fast and discrete_distribution_type == qp.Lattice:
             GPClass = fastgps.FastGPLattice
+            KernelClass = qp.KernelShiftInvar
         elif fast and discrete_distribution_type == qp.DigitalNetB2:
             GPClass = fastgps.FastGPDigitalNetB2
+            KernelClass = qp.KernelDigShiftInvar
+            if "randomize" not in kwargs_discrete_distrib_construct:
+                kwargs_discrete_distrib_construct = deepcopy(kwargs_discrete_distrib_construct)
+                kwargs_discrete_distrib_construct["randomize"] = "DS"
         else:
-            assert (
-                not fast
-            ), "MultiTaskGaussianProcessMLQMCIterator does not support fast=True when discrete_distribution_type not in [qp.Lattice, qp.DigitalNetB2]"
             GPClass = fastgps.StandardGP
+            KernelClass = qp.KernelSquaredExponential
 
         self.discrete_distribution_type = discrete_distribution_type
 
         import torch
-
         torch.set_default_dtype(torch.float64)
 
-        kwargs_discrete_distrib = (
-            {"randomize": "DS"} if GPClass == fastgps.FastGPDigitalNetB2 else {}
-        )
-        self.fgp = GPClass(
-            seqs=np.array(
-                [
-                    discrete_distribution_type(
-                        dimension, seed=seed, **kwargs_discrete_distrib
-                    )
-                    for seed in np.random.SeedSequence(seed).spawn(self._num_levels)
-                ],
-                dtype=object,
-            ),
-            num_tasks=self._num_levels,
-            **kwargs_fastgp_construct,
-        )
+        discrete_distribs = np.array([discrete_distribution_type(dimension,seed=seed,**kwargs_discrete_distrib_construct) for seed in np.random.SeedSequence(seed).spawn(self._num_levels)],dtype=object)
+        kernel = KernelClass(d=dimension,torchify=True,**kwargs_kernel_construct)
+        kernel_mt = qp.KernelMultiTask(kernel,num_tasks=self._num_levels,**kwargs_kernel_mt_construct)
+        self.fgp = GPClass(kernel_mt,discrete_distribs,**kwargs_fastgp_construct)
+
         self.refit_gps = refit_gps
 
         self.iteration = 0
 
-        assert budget_scheme in ["full", "greedy"]
-        self.max_iterations = 1 if budget_scheme == "full" else np.inf
-        self.budget_scheme = budget_scheme
+        assert budget_scheme.lower() in ["full", "greedy"]
+        self.budget_scheme = budget_scheme.lower()
+        self.max_iterations = 1 if self.budget_scheme == "full" else np.inf
 
         self.kwargs_fastgp_fit = kwargs_fastgp_fit
 

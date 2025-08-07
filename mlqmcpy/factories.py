@@ -105,10 +105,12 @@ class GreedyMLQMCFactory(AbstractMultilevelFactory):
 class GreedyGaussianProcessMLQMCFactory(AbstractMultilevelFactory):
     """Concrete factory for a Greedy MLQMC iterator using Fast GPs."""
 
-    def __init__(self, kwargs_fastgp_construct, kwargs_fastgp_fit, fast, refit_gps):
+    def __init__(self, kwargs_fastgp_construct, kwargs_discrete_distrib_construct, kwargs_kernel_construct, kwargs_fastgp_fit, fast, refit_gps):
         self.fgp_list = []
         self.fgp_counter = 0
         self.kwargs_fastgp_construct = kwargs_fastgp_construct
+        self.kwargs_discrete_distrib_construct = kwargs_discrete_distrib_construct
+        self.kwargs_kernel_construct = kwargs_kernel_construct
         self.kwargs_fastgp_fit = kwargs_fastgp_fit
         self.fast = fast
         self.refit_gps = refit_gps
@@ -132,19 +134,20 @@ class GreedyGaussianProcessMLQMCFactory(AbstractMultilevelFactory):
 
         if self.fast and discrete_distribution_type==qp.Lattice:
             GPClass = fastgps.FastGPLattice
+            KernelClass = qp.KernelShiftInvar
         elif self.fast and discrete_distribution_type==qp.DigitalNetB2:
             GPClass = fastgps.FastGPDigitalNetB2
+            KernelClass = qp.KernelDigShiftInvar
         else:
             assert not self.fast, "GreedyGaussianProcessMLQMCIterator does not support fast=True when discrete_distribution_type not in [qp.Lattice, qp.DigitalNetB2]"
             GPClass = fastgps.StandardGP
+            KernelClass = qp.KernelSquaredExponential
         
-        fgp = GPClass(
-            seqs=discrete_distribution_type(dimension=dimension, seed=seed),
-            **self.kwargs_fastgp_construct
-        )
-        
+        discrete_distrib = discrete_distribution_type(dimension=dimension,seed=seed,**self.kwargs_discrete_distrib_construct)
+        kernel = KernelClass(d=dimension,torchify=True,**self.kwargs_kernel_construct)
+        fgp = GPClass(kernel,discrete_distrib,**self.kwargs_fastgp_construct)
         self.fgp_list.append(fgp)
-
+        
         return FastGaussianProcessPointGenerator(self.fgp_list[-1])
 
     def create_sample_allocation_solver(self, initial_sample_size_list):
