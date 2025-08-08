@@ -13,13 +13,12 @@ import multiprocessing
 
 
 
-def main(problem, dimension, num_levels, dataroot, trial_start, trial_end):
+def main(problem, dimension, num_levels, true_solution, dataroot, trial_start, trial_end):
     assert trial_end>trial_start
     trials = trial_end-trial_start
     file = open(dataroot+"log.%d.%d.txt"%(trial_start,trial_end),"w")
     # parameters 
-    # max_budgets = 2**np.arange(8,15)
-    max_budgets = 2**np.arange(9,12)
+    max_budgets = 2**np.arange(7,15)
     initial_cost_prop_max_budget = 1/4
     kwargs_discrete_distrib_construct = {}
     kwargs_kernel_construct = {"requires_grad_scale":True,"requires_grad_lengthscales":True}
@@ -30,39 +29,38 @@ def main(problem, dimension, num_levels, dataroot, trial_start, trial_end):
     refit_mtgps = True
     initial_sampling_alloc = "PROP" # ["PROP","EQUAL"]
     mtgp_budget_scheme = "GREEDY" # ["GREEDY","FULL"]
-    n_ref = 2**19
     verbose = max(1,trials//10)
     zip_name_IteratorClass_kwargs = [
         ## MLMC
-        # ("MLMC    IID",mp.GreedyMLMCIterator,{},None),
+        ("MLMC    IID",mp.GreedyMLMCIterator,{},None),
         ## R-MLQMC
         ##  LATTICE
+        (r"R-MLQMC Lattice $R=2$",mp.GreedyMLQMCIterator,{"discrete_distribution_type":qp.Lattice,"replications":2},None),
+        (r"R-MLQMC Lattice $R=4$",mp.GreedyMLQMCIterator,{"discrete_distribution_type":qp.Lattice,"replications":4},None),
         (r"R-MLQMC Lattice $R=8$",mp.GreedyMLQMCIterator,{"discrete_distribution_type":qp.Lattice,"replications":8},None),
-        (r"R-MLQMC Lattice $R=16$",mp.GreedyMLQMCIterator,{"discrete_distribution_type":qp.Lattice,"replications":16},None),
-        # (r"R-MLQMC Lattice $R=32$",mp.GreedyMLQMCIterator,{"discrete_distribution_type":qp.Lattice,"replications":32},None),
-        # (r"R-MLQMC Lattice $R=8$ Baker",mp.GreedyMLQMCIterator,{"discrete_distribution_type":qp.Lattice,"replications":8},"BAKER"),
-        # (r"R-MLQMC Lattice $R=16$ Baker",mp.GreedyMLQMCIterator,{"discrete_distribution_type":qp.Lattice,"replications":16},"BAKER"),
-        # (r"R-MLQMC Lattice $R=32$ Baker",mp.GreedyMLQMCIterator,{"discrete_distribution_type":qp.Lattice,"replications":32},"BAKER"),
+        (r"R-MLQMC Lattice $R=2$ Baker",mp.GreedyMLQMCIterator,{"discrete_distribution_type":qp.Lattice,"replications":2},"BAKER"),
+        (r"R-MLQMC Lattice $R=4$ Baker",mp.GreedyMLQMCIterator,{"discrete_distribution_type":qp.Lattice,"replications":4},"BAKER"),
+        (r"R-MLQMC Lattice $R=8$ Baker",mp.GreedyMLQMCIterator,{"discrete_distribution_type":qp.Lattice,"replications":8},"BAKER"),
         ##  DNET 
+        (r"R-MLQMC DNet $R=2$",mp.GreedyMLQMCIterator,{"discrete_distribution_type":qp.DigitalNetB2,"replications":2},None),
+        (r"R-MLQMC DNet $R=4$",mp.GreedyMLQMCIterator,{"discrete_distribution_type":qp.DigitalNetB2,"replications":4},None),
         (r"R-MLQMC DNet $R=8$",mp.GreedyMLQMCIterator,{"discrete_distribution_type":qp.DigitalNetB2,"replications":8},None),
-        (r"R-MLQMC DNet $R=16$",mp.GreedyMLQMCIterator,{"discrete_distribution_type":qp.DigitalNetB2,"replications":16},None),
-        # (r"R-MLQMC DNet $R=32$",mp.GreedyMLQMCIterator,{"discrete_distribution_type":qp.DigitalNetB2,"replications":32},None),
         ## IGP 
         ##   FAST
         ##       LATTICE 
-        # (r"IGP    Lattice  Fast  SI  $\alpha=1$",mp.GreedyGaussianProcessMLQMCIterator,{"discrete_distribution_type":qp.Lattice,"fast":True,"kwargs_fastgp_construct":kwargs_fastgp_construct,"kwargs_kernel_construct":{"alpha":1,**kwargs_kernel_construct},"kwargs_fastgp_fit":kwargs_fastgp_fit,"refit_gps":refit_igps},None),
-        # (r"IGP    Lattice  Fast  SI  $\alpha=2$",mp.GreedyGaussianProcessMLQMCIterator,{"discrete_distribution_type":qp.Lattice,"fast":True,"kwargs_fastgp_construct":kwargs_fastgp_construct,"kwargs_kernel_construct":{"alpha":2,**kwargs_kernel_construct},"kwargs_fastgp_fit":kwargs_fastgp_fit,"refit_gps":refit_igps},None),
-        # (r"IGP    Lattice  Fast  SI  $\alpha=3$",mp.GreedyGaussianProcessMLQMCIterator,{"discrete_distribution_type":qp.Lattice,"fast":True,"kwargs_fastgp_construct":kwargs_fastgp_construct,"kwargs_kernel_construct":{"alpha":3,**kwargs_kernel_construct},"kwargs_fastgp_fit":kwargs_fastgp_fit,"refit_gps":refit_igps},None),
-        # (r"IGP    Lattice  Fast  SI  $\alpha=4$",mp.GreedyGaussianProcessMLQMCIterator,{"discrete_distribution_type":qp.Lattice,"fast":True,"kwargs_fastgp_construct":kwargs_fastgp_construct,"kwargs_kernel_construct":{"alpha":4,**kwargs_kernel_construct},"kwargs_fastgp_fit":kwargs_fastgp_fit,"refit_gps":refit_igps},None),
-        # (r"IGP    Lattice  Fast  SI  $\alpha=1$ BAKER",mp.GreedyGaussianProcessMLQMCIterator,{"discrete_distribution_type":qp.Lattice,"fast":True,"kwargs_fastgp_construct":kwargs_fastgp_construct,"kwargs_kernel_construct":{"alpha":1,**kwargs_kernel_construct},"kwargs_fastgp_fit":kwargs_fastgp_fit,"refit_gps":refit_igps},"BAKER"),
-        # (r"IGP    Lattice  Fast  SI  $\alpha=2$ BAKER",mp.GreedyGaussianProcessMLQMCIterator,{"discrete_distribution_type":qp.Lattice,"fast":True,"kwargs_fastgp_construct":kwargs_fastgp_construct,"kwargs_kernel_construct":{"alpha":2,**kwargs_kernel_construct},"kwargs_fastgp_fit":kwargs_fastgp_fit,"refit_gps":refit_igps},"BAKER"),
-        # (r"IGP    Lattice  Fast  SI  $\alpha=3$ BAKER",mp.GreedyGaussianProcessMLQMCIterator,{"discrete_distribution_type":qp.Lattice,"fast":True,"kwargs_fastgp_construct":kwargs_fastgp_construct,"kwargs_kernel_construct":{"alpha":3,**kwargs_kernel_construct},"kwargs_fastgp_fit":kwargs_fastgp_fit,"refit_gps":refit_igps},"BAKER"),
-        # (r"IGP    Lattice  Fast  SI  $\alpha=4$ BAKER",mp.GreedyGaussianProcessMLQMCIterator,{"discrete_distribution_type":qp.Lattice,"fast":True,"kwargs_fastgp_construct":kwargs_fastgp_construct,"kwargs_kernel_construct":{"alpha":4,**kwargs_kernel_construct},"kwargs_fastgp_fit":kwargs_fastgp_fit,"refit_gps":refit_igps},"BAKER"),
+        (r"IGP    Lattice  Fast  SI  $\alpha=1$",mp.GreedyGaussianProcessMLQMCIterator,{"discrete_distribution_type":qp.Lattice,"fast":True,"kwargs_fastgp_construct":kwargs_fastgp_construct,"kwargs_kernel_construct":{"alpha":1,**kwargs_kernel_construct},"kwargs_fastgp_fit":kwargs_fastgp_fit,"refit_gps":refit_igps},None),
+        (r"IGP    Lattice  Fast  SI  $\alpha=2$",mp.GreedyGaussianProcessMLQMCIterator,{"discrete_distribution_type":qp.Lattice,"fast":True,"kwargs_fastgp_construct":kwargs_fastgp_construct,"kwargs_kernel_construct":{"alpha":2,**kwargs_kernel_construct},"kwargs_fastgp_fit":kwargs_fastgp_fit,"refit_gps":refit_igps},None),
+        (r"IGP    Lattice  Fast  SI  $\alpha=3$",mp.GreedyGaussianProcessMLQMCIterator,{"discrete_distribution_type":qp.Lattice,"fast":True,"kwargs_fastgp_construct":kwargs_fastgp_construct,"kwargs_kernel_construct":{"alpha":3,**kwargs_kernel_construct},"kwargs_fastgp_fit":kwargs_fastgp_fit,"refit_gps":refit_igps},None),
+        (r"IGP    Lattice  Fast  SI  $\alpha=4$",mp.GreedyGaussianProcessMLQMCIterator,{"discrete_distribution_type":qp.Lattice,"fast":True,"kwargs_fastgp_construct":kwargs_fastgp_construct,"kwargs_kernel_construct":{"alpha":4,**kwargs_kernel_construct},"kwargs_fastgp_fit":kwargs_fastgp_fit,"refit_gps":refit_igps},None),
+        (r"IGP    Lattice  Fast  SI  $\alpha=1$ BAKER",mp.GreedyGaussianProcessMLQMCIterator,{"discrete_distribution_type":qp.Lattice,"fast":True,"kwargs_fastgp_construct":kwargs_fastgp_construct,"kwargs_kernel_construct":{"alpha":1,**kwargs_kernel_construct},"kwargs_fastgp_fit":kwargs_fastgp_fit,"refit_gps":refit_igps},"BAKER"),
+        (r"IGP    Lattice  Fast  SI  $\alpha=2$ BAKER",mp.GreedyGaussianProcessMLQMCIterator,{"discrete_distribution_type":qp.Lattice,"fast":True,"kwargs_fastgp_construct":kwargs_fastgp_construct,"kwargs_kernel_construct":{"alpha":2,**kwargs_kernel_construct},"kwargs_fastgp_fit":kwargs_fastgp_fit,"refit_gps":refit_igps},"BAKER"),
+        (r"IGP    Lattice  Fast  SI  $\alpha=3$ BAKER",mp.GreedyGaussianProcessMLQMCIterator,{"discrete_distribution_type":qp.Lattice,"fast":True,"kwargs_fastgp_construct":kwargs_fastgp_construct,"kwargs_kernel_construct":{"alpha":3,**kwargs_kernel_construct},"kwargs_fastgp_fit":kwargs_fastgp_fit,"refit_gps":refit_igps},"BAKER"),
+        (r"IGP    Lattice  Fast  SI  $\alpha=4$ BAKER",mp.GreedyGaussianProcessMLQMCIterator,{"discrete_distribution_type":qp.Lattice,"fast":True,"kwargs_fastgp_construct":kwargs_fastgp_construct,"kwargs_kernel_construct":{"alpha":4,**kwargs_kernel_construct},"kwargs_fastgp_fit":kwargs_fastgp_fit,"refit_gps":refit_igps},"BAKER"),
         ##       DNET
-        # (r"IGP    DNet     Fast  DSI $\alpha=1$",mp.GreedyGaussianProcessMLQMCIterator,{"discrete_distribution_type":qp.DigitalNetB2,"fast":True,"kwargs_fastgp_construct":kwargs_fastgp_construct,"kwargs_kernel_construct":{"alpha":1,**kwargs_kernel_construct},"kwargs_fastgp_fit":kwargs_fastgp_fit,"refit_gps":refit_igps},None),
-        # (r"IGP    DNet     Fast  DSI $\alpha=2$",mp.GreedyGaussianProcessMLQMCIterator,{"discrete_distribution_type":qp.DigitalNetB2,"fast":True,"kwargs_fastgp_construct":kwargs_fastgp_construct,"kwargs_kernel_construct":{"alpha":2,**kwargs_kernel_construct},"kwargs_fastgp_fit":kwargs_fastgp_fit,"refit_gps":refit_igps},None),
-        # (r"IGP    DNet     Fast  DSI $\alpha=3$",mp.GreedyGaussianProcessMLQMCIterator,{"discrete_distribution_type":qp.DigitalNetB2,"fast":True,"kwargs_fastgp_construct":kwargs_fastgp_construct,"kwargs_kernel_construct":{"alpha":3,**kwargs_kernel_construct},"kwargs_fastgp_fit":kwargs_fastgp_fit,"refit_gps":refit_igps},None),
-        # (r"IGP    DNet     Fast  DSI $\alpha=4$",mp.GreedyGaussianProcessMLQMCIterator,{"discrete_distribution_type":qp.DigitalNetB2,"fast":True,"kwargs_fastgp_construct":kwargs_fastgp_construct,"kwargs_kernel_construct":{"alpha":4,**kwargs_kernel_construct},"kwargs_fastgp_fit":kwargs_fastgp_fit,"refit_gps":refit_igps},None),
+        (r"IGP    DNet     Fast  DSI $\alpha=1$",mp.GreedyGaussianProcessMLQMCIterator,{"discrete_distribution_type":qp.DigitalNetB2,"fast":True,"kwargs_fastgp_construct":kwargs_fastgp_construct,"kwargs_kernel_construct":{"alpha":1,**kwargs_kernel_construct},"kwargs_fastgp_fit":kwargs_fastgp_fit,"refit_gps":refit_igps},None),
+        (r"IGP    DNet     Fast  DSI $\alpha=2$",mp.GreedyGaussianProcessMLQMCIterator,{"discrete_distribution_type":qp.DigitalNetB2,"fast":True,"kwargs_fastgp_construct":kwargs_fastgp_construct,"kwargs_kernel_construct":{"alpha":2,**kwargs_kernel_construct},"kwargs_fastgp_fit":kwargs_fastgp_fit,"refit_gps":refit_igps},None),
+        (r"IGP    DNet     Fast  DSI $\alpha=3$",mp.GreedyGaussianProcessMLQMCIterator,{"discrete_distribution_type":qp.DigitalNetB2,"fast":True,"kwargs_fastgp_construct":kwargs_fastgp_construct,"kwargs_kernel_construct":{"alpha":3,**kwargs_kernel_construct},"kwargs_fastgp_fit":kwargs_fastgp_fit,"refit_gps":refit_igps},None),
+        (r"IGP    DNet     Fast  DSI $\alpha=4$",mp.GreedyGaussianProcessMLQMCIterator,{"discrete_distribution_type":qp.DigitalNetB2,"fast":True,"kwargs_fastgp_construct":kwargs_fastgp_construct,"kwargs_kernel_construct":{"alpha":4,**kwargs_kernel_construct},"kwargs_fastgp_fit":kwargs_fastgp_fit,"refit_gps":refit_igps},None),
         ## MTGPF
         ##   FAST 
         ##       LATTICE
@@ -91,10 +89,6 @@ def main(problem, dimension, num_levels, dataroot, trial_start, trial_end):
     # experiment
     t0 = time.perf_counter()
     names = [name for (name,IteratorClass,kwargs,tf_type) in zip_name_IteratorClass_kwargs]
-    if hasattr(problem,"exact") and hasattr(problem.exact,"Q") and hasattr(problem.exact.Q,"mean"):
-        true_solution = problem.exact.Q.mean(level=num_levels-1)
-    else:
-        true_solution = problem(num_levels-1,qp.DigitalNetB2(dimension)(n_ref)).mean()
     cost_per_level = 2.**(np.arange(num_levels)-num_levels+1) # Rescale so that finest level has unit cost
     file.write("max_budgets: %s\n"%max_budgets)
     file.write("cost_per_level: %s\n"%str(cost_per_level))
@@ -124,6 +118,7 @@ def main(problem, dimension, num_levels, dataroot, trial_start, trial_end):
                 initial_sample_size = 2**np.ceil(np.log2(initial_sample_size_og)).astype(int)
                 initial_cost = (initial_sample_size*cost_per_level).sum()
             file.write("\t%s, \t initial_sample_size = %s, \tinitial cost = %.1f\n"%(name,str(initial_sample_size.tolist()),initial_cost))
+            file.flush()
             for t in range(trials):
                 iterator = IteratorClass(
                     dimension,
@@ -150,15 +145,18 @@ def main(problem, dimension, num_levels, dataroot, trial_start, trial_end):
                 if verbose and t%verbose==0:
                     file.write("\t\ttrial: %-6d iteration: %-6d cost: %-10d mean: %-15.3e std error: %-15.3e true error: %-15.3e time %-15d sample sizes %s\n"%\
                     (t,iter,costs[i,j,t],means[i,j,t],std_errors[i,j,t],true_errors[i,j,t],int(np.ceil(time.perf_counter()-t0)),str(samples_per_level[i,j,t].tolist())))
+                    file.flush()
                 #import psutil; process = psutil.Process(os.getpid()); file.write(f"Total program memory: {process.memory_info().rss / (1024 * 1024):.2f} MB\n")
                 # del iterator
                 # import gc; gc.collect()
         file.write("\n")
+        file.flush()
     file.close()
     data = {
         "problem_name": problem.__name__,
         "dimension": dimension,
         "num_levels": num_levels,
+        "true_solution": true_solution,
         "max_budgets": max_budgets,
         "initial_cost_prop_max_budget": initial_cost_prop_max_budget,
         "names": names,
@@ -169,40 +167,43 @@ def main(problem, dimension, num_levels, dataroot, trial_start, trial_end):
         "true_errors": true_errors,
         "kwargs_fastgp_fit": kwargs_fastgp_fit,
         "refit_gps":refit_igps,
-        "n_ref":n_ref,
     }
     np.save(dataroot+"data.%d.%d.npy"%(trial_start,trial_end),data)
 
 if __name__=="__main__":
-    force_experiment = False
+    force_experiment = True
     trials = 100
     parallel = 10
     problem_dim_levels = (analytic,2,4)
     #problem_dim_levels = (borehole,8,2)
     #problem_dim_levels = (elliptic,8,4)
-    #problem_dim_levels = (asian_option,16,8)
+    # problem_dim_levels = (asian_option,16,8)
     #problem_dim_levels = (steady_state_diffusion_1d,9,5)
     problem,dimension,num_levels = problem_dim_levels
     dataroot = os.path.dirname(os.path.abspath(__file__))+"/budgeted_comparison_data/comp.%s.d%d.levels%d.TMP/"%(problem.__name__,dimension,num_levels)
     # directory setup
     if os.path.exists(dataroot) and (not force_experiment):
-        print("experiment exists, ending program")
+        print("experiment %s exists, ending program"%dataroot)
         sys.exit(0)
     if os.path.exists(dataroot):
         shutil.rmtree(dataroot)
     os.makedirs(dataroot)
+    if hasattr(problem,"exact") and hasattr(problem.exact,"Q") and hasattr(problem.exact.Q,"mean"):
+        true_solution = problem.exact.Q.mean(level=num_levels-1)
+    else:
+        true_solution = problem(num_levels-1,qp.DigitalNetB2(dimension)(2**19)).mean()
     assert parallel>0
     bs = int(np.ceil(trials/parallel))
     trial_blocks = [(i*bs,min(trials,(i+1)*bs)) for i in range(parallel)]
     if parallel==1:
         for trial_start,trial_end in trial_blocks:
             # run experiments 
-            main(problem, dimension, num_levels, dataroot, trial_start, trial_end)
+            main(problem, dimension, num_levels, true_solution, dataroot, trial_start, trial_end)
     else:
         print("%d CPUs available, using parallel = %d CPUs"%(os.cpu_count(),parallel))
         processes = []
         for trial_start,trial_end in trial_blocks:
-            process = multiprocessing.Process(target=main, args=(problem, dimension, num_levels, dataroot, trial_start, trial_end))
+            process = multiprocessing.Process(target=main, args=(problem, dimension, num_levels, true_solution, dataroot, trial_start, trial_end))
             processes.append(process)
         for process in processes:
             process.start()
