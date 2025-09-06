@@ -176,10 +176,10 @@ class GaussianProcessResponseAccumulator(ResponseAccumulator):
     #     """Return the cost."""
     #     return self._cost
 
-    # @property
-    # def mean(self):
-    #     """Return the mean of responses."""
-    #     return self._fgp.post_cubature_mean().numpy() if len(self) else np.nan
+    @property
+    def mean(self):
+        """Return the mean of responses."""
+        return self._fgp.post_cubature_mean().numpy() if len(self) else np.nan
 
     @property
     def variance(self):
