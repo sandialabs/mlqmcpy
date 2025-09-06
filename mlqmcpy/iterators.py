@@ -282,6 +282,12 @@ class GreedyGaussianProcessMLQMCIterator(AbstractMultilevelIterator):
         else:
             kwargs_discrete_distrib_construct = {}
 
+        if "kernel_class" in kwargs:
+            kernel_class = kwargs["kernel_class"]
+            del kwargs["kernel_class"]
+        else:
+            kernel_class = None
+        
         if "kwargs_kernel_construct" in kwargs:
             kwargs_kernel_construct = kwargs["kwargs_kernel_construct"]
             del kwargs["kwargs_kernel_construct"]
@@ -313,6 +319,7 @@ class GreedyGaussianProcessMLQMCIterator(AbstractMultilevelIterator):
         factory = GreedyGaussianProcessMLQMCFactory(
             kwargs_fastgp_construct=kwargs_fastgp_construct,
             kwargs_discrete_distrib_construct=kwargs_discrete_distrib_construct,
+            kernel_class=kernel_class,
             kwargs_kernel_construct=kwargs_kernel_construct,
             kwargs_fastgp_fit=kwargs_fastgp_fit,
             fast=fast,
@@ -340,6 +347,7 @@ class AbstractMultiTaskGaussianProcessMLQMCIterator(AbstractMultilevelIterator):
         budget_scheme="greedy",
         kwargs_fastgp_construct={},
         kwargs_discrete_distrib_construct = {},
+        kernel_class = None,
         kwargs_kernel_construct = {},
         kwargs_kernel_mt_construct = {},
         kwargs_fastgp_fit={},
@@ -385,16 +393,16 @@ class AbstractMultiTaskGaussianProcessMLQMCIterator(AbstractMultilevelIterator):
 
         if fast and discrete_distribution_type == qp.Lattice:
             GPClass = fastgps.FastGPLattice
-            KernelClass = qp.KernelShiftInvar
+            KernelClass = qp.KernelShiftInvar if kernel_class is None else kernel_class
         elif fast and discrete_distribution_type == qp.DigitalNetB2:
             GPClass = fastgps.FastGPDigitalNetB2
-            KernelClass = qp.KernelDigShiftInvar
+            KernelClass = qp.KernelDigShiftInvar if kernel_class is None else kernel_class
             if "randomize" not in kwargs_discrete_distrib_construct:
                 kwargs_discrete_distrib_construct = deepcopy(kwargs_discrete_distrib_construct)
                 kwargs_discrete_distrib_construct["randomize"] = "DS"
         else:
             GPClass = fastgps.StandardGP
-            KernelClass = qp.KernelSquaredExponential
+            KernelClass = qp.KernelSquaredExponential if kernel_class is None else kernel_class
 
         self.discrete_distribution_type = discrete_distribution_type
 
@@ -415,6 +423,8 @@ class AbstractMultiTaskGaussianProcessMLQMCIterator(AbstractMultilevelIterator):
         self.max_iterations = 1 if self.budget_scheme == "full" else np.inf
 
         self.kwargs_fastgp_fit = kwargs_fastgp_fit
+
+        self.weights = self.get_weights()
 
     def _get_next_n(self, future_budget):
         import torch
@@ -515,6 +525,27 @@ class AbstractMultiTaskGaussianProcessMLQMCIterator(AbstractMultilevelIterator):
         if self.iteration == 1 or self.refit_gps:
             # data = self.fgp.fit(**self.kwargs_fastgp_fit)
             self.fgp.fit(**self.kwargs_fastgp_fit)
+        self.post_cubature_means = self.fgp.post_cubature_mean().numpy()
+        self.post_cubature_cov = self.fgp.post_cubature_cov().numpy()
+        self.optimal_weights = (self.weights*self.post_cubature_means).sum()*np.linalg.lstsq(self.post_cubature_cov+self.post_cubature_means[:,None]*self.post_cubature_means[None,:],self.post_cubature_means)[0]
+        self.optimal_mean_pred = (self.optimal_weights*self.post_cubature_means).sum()
+        self.optimal_standard_error = np.sqrt(max(self.optimal_weights@self.post_cubature_cov@self.optimal_weights,0))
+    @property
+    def mean(self):
+        """Return the total mean across levels."""
+        return self.optimal_mean_pred
+
+    @property
+    def standard_error(self):
+        """Return the combined standard error across levels."""
+        return self.optimal_standard_error
+
+    def projected_post_cubature_var(self, n):
+        assert n.shape==(self.fgp.num_tasks,)
+        import torch 
+        projected_cov = self.fgp.post_cubature_cov(n=torch.from_numpy(n).to(self.fgp.device)).numpy()
+        optimal_projected_cov = self.optimal_weights@projected_cov@self.optimal_weights
+        return optimal_projected_cov
     
     @property
     def cost(self):
@@ -534,40 +565,11 @@ class AbstractMultiTaskGaussianProcessMLQMCIterator(AbstractMultilevelIterator):
         print("\t    standard error: %s"%self.standard_error)
 
 class MultiTaskGaussianProcessMLQMCIteratorFunction(AbstractMultiTaskGaussianProcessMLQMCIterator):
-
-    @property
-    def mean(self):
-        """Return the total mean across levels."""
-        return self.fgp.post_cubature_mean(task=self._num_levels - 1).item()
-
-    @property
-    def standard_error(self):
-        """Return the combined standard error across levels."""
-        return np.sqrt(self.fgp.post_cubature_var(task=self._num_levels - 1).item())
-
-    def projected_post_cubature_var(self, n):
-        assert n.shape==(self.fgp.num_tasks,)
-        import torch 
-        return self.fgp.post_cubature_var(
-            task = (self._num_levels - 1),
-            n = torch.from_numpy(n).to(self.fgp.device),
-        ).item()
+    
+    def get_weights(self):
+        return (np.arange(1,self._num_levels+1)==self._num_levels).astype(float)
 
 class MultiTaskGaussianProcessMLQMCIteratorDifference(AbstractMultiTaskGaussianProcessMLQMCIterator):
 
-    @property
-    def mean(self):
-        """Return the total mean across levels."""
-        return self.fgp.post_cubature_mean().sum().item()
-
-    @property
-    def standard_error(self):
-        """Return the combined standard error across levels."""
-        return np.sqrt(self.fgp.post_cubature_cov().sum()).item()
-
-    def projected_post_cubature_var(self, n):
-        assert n.shape==(self.fgp.num_tasks,)
-        import torch 
-        return self.fgp.post_cubature_cov(
-            n = torch.from_numpy(n).to(self.fgp.device),
-        ).sum().item()
+    def get_weights(self):
+        return np.ones(self._num_levels)
