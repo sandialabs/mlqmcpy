@@ -16,7 +16,7 @@ def main(problem, dimension, num_levels, true_solution, dataroot, trial_start, t
     trials = trial_end-trial_start
     file = open(dataroot+"log.%d.%d.log"%(trial_start,trial_end),"w")
     # parameters 
-    max_budgets = 2**np.arange(1,15)
+    max_budgets = 2**np.arange(2,13)
     initial_cost_prop_max_budget = 1/4
     kwargs_discrete_distrib_construct = {}
     kwargs_kernel_construct = {"requires_grad_scale":True,"requires_grad_lengthscales":True}
@@ -181,8 +181,8 @@ if __name__=="__main__":
     trials = 100
     parallel = 10
     # problem_dim_levels = (analytic,2,4)
-    problem_dim_levels = (borehole,8,2)
-    # problem_dim_levels = (elliptic,8,4)
+    # problem_dim_levels = (borehole,8,2)
+    problem_dim_levels = (elliptic,8,4)
     # problem_dim_levels = (asian_option,16,8)
     # problem_dim_levels = (steady_state_diffusion_1d,9,5)
     problem,dimension,num_levels = problem_dim_levels
