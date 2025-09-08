@@ -181,8 +181,8 @@ if __name__=="__main__":
     trials = 100
     parallel = 10
     # problem_dim_levels_ms = (analytic,2,4,2,15)
-    # problem_dim_levels_ms = (borehole,8,2,2,13)
-    problem_dim_levels_ms = (elliptic,8,4,2,14)
+    problem_dim_levels_ms = (borehole,8,2,2,13)
+    # problem_dim_levels_ms = (elliptic,8,4,2,14)
     # problem_dim_levels_ms = (asian_option,16,8,3,10)
     # problem_dim_levels_ms = (steady_state_diffusion_1d,9,5,2,9)
     problem,dimension,num_levels,m_min,m_max = problem_dim_levels_ms
