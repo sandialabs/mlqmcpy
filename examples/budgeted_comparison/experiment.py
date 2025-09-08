@@ -11,12 +11,12 @@ import gc
 import sys
 import multiprocessing
 
-def main(problem, dimension, num_levels, true_solution, dataroot, trial_start, trial_end):
+def main(problem, dimension, num_levels, m_min, m_max, true_solution, dataroot, trial_start, trial_end):
     assert trial_end>trial_start
     trials = trial_end-trial_start
     file = open(dataroot+"log.%d.%d.log"%(trial_start,trial_end),"w")
     # parameters 
-    max_budgets = 2**np.arange(3,10)
+    max_budgets = 2**np.arange(m_min,m_max)
     initial_cost_prop_max_budget = 1/4
     kwargs_discrete_distrib_construct = {}
     kwargs_kernel_construct = {"requires_grad_scale":True,"requires_grad_lengthscales":True}
@@ -58,11 +58,11 @@ def main(problem, dimension, num_levels, true_solution, dataroot, trial_start, t
         (r"IGP    Lattice  Fast  SI  $\alpha=3$ Baker",mp.GreedyGaussianProcessMLQMCIterator,{"discrete_distribution_type":qp.Lattice,"fast":True,"kwargs_fastgp_construct":kwargs_fastgp_construct,"kwargs_kernel_construct":{"alpha":3,**kwargs_kernel_construct},"kwargs_fastgp_fit":kwargs_fastgp_fit,"refit_gps":refit_igps},"BAKER"),
         (r"IGP    Lattice  Fast  SI  $\alpha=4$ Baker",mp.GreedyGaussianProcessMLQMCIterator,{"discrete_distribution_type":qp.Lattice,"fast":True,"kwargs_fastgp_construct":kwargs_fastgp_construct,"kwargs_kernel_construct":{"alpha":4,**kwargs_kernel_construct},"kwargs_fastgp_fit":kwargs_fastgp_fit,"refit_gps":refit_igps},"BAKER"),
         ##       DNET
-        (r"IGP    DNet     Fast  DSI Adaptive  ",mp.GreedyGaussianProcessMLQMCIterator,{"discrete_distribution_type":qp.DigitalNetB2,"kwargs_discrete_distrib_construct":{"alpha":4,**kwargs_discrete_distrib_construct},"fast":True,"kwargs_fastgp_construct":kwargs_fastgp_construct,"kwargs_kernel_construct":{"alpha":1,**kwargs_kernel_construct},"kwargs_fastgp_fit":kwargs_fastgp_fit,"refit_gps":refit_igps,"kernel_class":qp.KernelDigShiftInvarAdaptiveAlpha},None),
+        (r"IGP    DNet     Fast  DSI Adaptive  ",mp.GreedyGaussianProcessMLQMCIterator,{"discrete_distribution_type":qp.DigitalNetB2,"kwargs_discrete_distrib_construct":{"alpha":1,**kwargs_discrete_distrib_construct},"fast":True,"kwargs_fastgp_construct":kwargs_fastgp_construct,"kwargs_kernel_construct":{"alpha":1,**kwargs_kernel_construct},"kwargs_fastgp_fit":kwargs_fastgp_fit,"refit_gps":refit_igps,"kernel_class":qp.KernelDigShiftInvarAdaptiveAlpha},None),
         (r"IGP    DNet     Fast  DSI $\alpha=1$",mp.GreedyGaussianProcessMLQMCIterator,{"discrete_distribution_type":qp.DigitalNetB2,"kwargs_discrete_distrib_construct":{"alpha":1,**kwargs_discrete_distrib_construct},"fast":True,"kwargs_fastgp_construct":kwargs_fastgp_construct,"kwargs_kernel_construct":{"alpha":1,**kwargs_kernel_construct},"kwargs_fastgp_fit":kwargs_fastgp_fit,"refit_gps":refit_igps},None),
-        (r"IGP    DNet     Fast  DSI $\alpha=2$",mp.GreedyGaussianProcessMLQMCIterator,{"discrete_distribution_type":qp.DigitalNetB2,"kwargs_discrete_distrib_construct":{"alpha":2,**kwargs_discrete_distrib_construct},"fast":True,"kwargs_fastgp_construct":kwargs_fastgp_construct,"kwargs_kernel_construct":{"alpha":2,**kwargs_kernel_construct},"kwargs_fastgp_fit":kwargs_fastgp_fit,"refit_gps":refit_igps},None),
-        (r"IGP    DNet     Fast  DSI $\alpha=3$",mp.GreedyGaussianProcessMLQMCIterator,{"discrete_distribution_type":qp.DigitalNetB2,"kwargs_discrete_distrib_construct":{"alpha":3,**kwargs_discrete_distrib_construct},"fast":True,"kwargs_fastgp_construct":kwargs_fastgp_construct,"kwargs_kernel_construct":{"alpha":3,**kwargs_kernel_construct},"kwargs_fastgp_fit":kwargs_fastgp_fit,"refit_gps":refit_igps},None),
-        (r"IGP    DNet     Fast  DSI $\alpha=4$",mp.GreedyGaussianProcessMLQMCIterator,{"discrete_distribution_type":qp.DigitalNetB2,"kwargs_discrete_distrib_construct":{"alpha":4,**kwargs_discrete_distrib_construct},"fast":True,"kwargs_fastgp_construct":kwargs_fastgp_construct,"kwargs_kernel_construct":{"alpha":4,**kwargs_kernel_construct},"kwargs_fastgp_fit":kwargs_fastgp_fit,"refit_gps":refit_igps},None),
+        (r"IGP    DNet     Fast  DSI $\alpha=2$",mp.GreedyGaussianProcessMLQMCIterator,{"discrete_distribution_type":qp.DigitalNetB2,"kwargs_discrete_distrib_construct":{"alpha":1,**kwargs_discrete_distrib_construct},"fast":True,"kwargs_fastgp_construct":kwargs_fastgp_construct,"kwargs_kernel_construct":{"alpha":2,**kwargs_kernel_construct},"kwargs_fastgp_fit":kwargs_fastgp_fit,"refit_gps":refit_igps},None),
+        (r"IGP    DNet     Fast  DSI $\alpha=3$",mp.GreedyGaussianProcessMLQMCIterator,{"discrete_distribution_type":qp.DigitalNetB2,"kwargs_discrete_distrib_construct":{"alpha":1,**kwargs_discrete_distrib_construct},"fast":True,"kwargs_fastgp_construct":kwargs_fastgp_construct,"kwargs_kernel_construct":{"alpha":3,**kwargs_kernel_construct},"kwargs_fastgp_fit":kwargs_fastgp_fit,"refit_gps":refit_igps},None),
+        (r"IGP    DNet     Fast  DSI $\alpha=4$",mp.GreedyGaussianProcessMLQMCIterator,{"discrete_distribution_type":qp.DigitalNetB2,"kwargs_discrete_distrib_construct":{"alpha":1,**kwargs_discrete_distrib_construct},"fast":True,"kwargs_fastgp_construct":kwargs_fastgp_construct,"kwargs_kernel_construct":{"alpha":4,**kwargs_kernel_construct},"kwargs_fastgp_fit":kwargs_fastgp_fit,"refit_gps":refit_igps},None),
         ## MTGPF
         ##   FAST 
         ##       LATTICE
@@ -179,13 +179,13 @@ def main(problem, dimension, num_levels, true_solution, dataroot, trial_start, t
 if __name__=="__main__":
     force_experiment = True
     trials = 100
-    parallel = 5
-    # problem_dim_levels = (analytic,2,4)
-    # problem_dim_levels = (borehole,8,2)
-    # problem_dim_levels = (elliptic,8,4)
-    problem_dim_levels = (asian_option,16,8)
-    # problem_dim_levels = (steady_state_diffusion_1d,9,5)
-    problem,dimension,num_levels = problem_dim_levels
+    parallel = 10
+    # problem_dim_levels_ms = (analytic,2,4,2,15)
+    # problem_dim_levels_ms = (borehole,8,2,2,13)
+    problem_dim_levels_ms = (elliptic,8,4,2,14)
+    # problem_dim_levels_ms = (asian_option,16,8,3,10)
+    # problem_dim_levels_ms = (steady_state_diffusion_1d,9,5,2,9)
+    problem,dimension,num_levels,m_min,m_max = problem_dim_levels_ms
     dataroot = os.path.dirname(os.path.abspath(__file__))+"/budgeted_comparison_data/comp.%s.d%d.levels%d.BIG/"%(problem.__name__,dimension,num_levels)
     # directory setup
     if os.path.exists(dataroot) and (not force_experiment):
@@ -204,12 +204,12 @@ if __name__=="__main__":
     if parallel==1:
         for trial_start,trial_end in trial_blocks:
             # run experiments 
-            main(problem, dimension, num_levels, true_solution, dataroot, trial_start, trial_end)
+            main(problem, dimension, num_levels, m_min, m_max, true_solution, dataroot, trial_start, trial_end)
     else:
         print("%d CPUs available, using parallel = %d CPUs"%(os.cpu_count(),parallel))
         processes = []
         for trial_start,trial_end in trial_blocks:
-            process = multiprocessing.Process(target=main, args=(problem, dimension, num_levels, true_solution, dataroot, trial_start, trial_end))
+            process = multiprocessing.Process(target=main, args=(problem, dimension, num_levels, m_min, m_max, true_solution, dataroot, trial_start, trial_end))
             processes.append(process)
         for process in processes:
             process.start()
