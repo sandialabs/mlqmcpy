@@ -1,5 +1,12 @@
 import mlqmcpy as mp
-from mlqmcpy.problems import analytic, elliptic, asian_option, borehole, steady_state_diffusion_1d
+from mlqmcpy.problems import (
+    analytic,
+    elliptic,
+    asian_option,
+    borehole,
+    steady_state_diffusion_1d,
+    MLFinancialOption,
+)
 
 import numpy as np
 import scipy.stats
@@ -11,10 +18,12 @@ import gc
 import sys
 import multiprocessing
 
-def main(problem, dimension, num_levels, m_min, m_max, true_solution, dataroot, trial_start, trial_end):
+def main(problem_name, problem, dimension, num_levels, m_min, m_max, true_solution, dataroot, trial_start, trial_end):
     assert trial_end>trial_start
     trials = trial_end-trial_start
-    file = open(dataroot+"log.%d.%d.log"%(trial_start,trial_end),"w")
+    fname = dataroot+"log.%d.%d.log"%(trial_start,trial_end)
+    print("\t%s"%fname)
+    file = open(fname,"w")
     # parameters 
     max_budgets = 2**np.arange(m_min,m_max)
     initial_cost_prop_max_budget = 1/4
@@ -33,14 +42,14 @@ def main(problem, dimension, num_levels, m_min, m_max, true_solution, dataroot, 
         ("MLMC    IID",mp.GreedyMLMCIterator,{},None),
         ## R-MLQMC
         ##  LATTICE
-        (r"R-MLQMC Lattice $R=2$",mp.GreedyMLQMCIterator,{"discrete_distribution_type":qp.Lattice,"replications":2},None),
-        (r"R-MLQMC Lattice $R=4$",mp.GreedyMLQMCIterator,{"discrete_distribution_type":qp.Lattice,"replications":4},None),
-        (r"R-MLQMC Lattice $R=8$",mp.GreedyMLQMCIterator,{"discrete_distribution_type":qp.Lattice,"replications":8},None),
-        (r"R-MLQMC Lattice $R=16$",mp.GreedyMLQMCIterator,{"discrete_distribution_type":qp.Lattice,"replications":16},None),
-        (r"R-MLQMC Lattice $R=2$ Baker",mp.GreedyMLQMCIterator,{"discrete_distribution_type":qp.Lattice,"replications":2},"BAKER"),
-        (r"R-MLQMC Lattice $R=4$ Baker",mp.GreedyMLQMCIterator,{"discrete_distribution_type":qp.Lattice,"replications":4},"BAKER"),
-        (r"R-MLQMC Lattice $R=8$ Baker",mp.GreedyMLQMCIterator,{"discrete_distribution_type":qp.Lattice,"replications":8},"BAKER"),
-        (r"R-MLQMC Lattice $R=16$ Baker",mp.GreedyMLQMCIterator,{"discrete_distribution_type":qp.Lattice,"replications":16},"BAKER"),
+        # (r"R-MLQMC Lattice $R=2$",mp.GreedyMLQMCIterator,{"discrete_distribution_type":qp.Lattice,"replications":2},None),
+        # (r"R-MLQMC Lattice $R=4$",mp.GreedyMLQMCIterator,{"discrete_distribution_type":qp.Lattice,"replications":4},None),
+        # (r"R-MLQMC Lattice $R=8$",mp.GreedyMLQMCIterator,{"discrete_distribution_type":qp.Lattice,"replications":8},None),
+        # (r"R-MLQMC Lattice $R=16$",mp.GreedyMLQMCIterator,{"discrete_distribution_type":qp.Lattice,"replications":16},None),
+        # (r"R-MLQMC Lattice $R=2$ Baker",mp.GreedyMLQMCIterator,{"discrete_distribution_type":qp.Lattice,"replications":2},"BAKER"),
+        # (r"R-MLQMC Lattice $R=4$ Baker",mp.GreedyMLQMCIterator,{"discrete_distribution_type":qp.Lattice,"replications":4},"BAKER"),
+        # (r"R-MLQMC Lattice $R=8$ Baker",mp.GreedyMLQMCIterator,{"discrete_distribution_type":qp.Lattice,"replications":8},"BAKER"),
+        # (r"R-MLQMC Lattice $R=16$ Baker",mp.GreedyMLQMCIterator,{"discrete_distribution_type":qp.Lattice,"replications":16},"BAKER"),
         ##  DNET 
         (r"R-MLQMC DNet $R=2$",mp.GreedyMLQMCIterator,{"discrete_distribution_type":qp.DigitalNetB2,"replications":2},None),
         (r"R-MLQMC DNet $R=4$",mp.GreedyMLQMCIterator,{"discrete_distribution_type":qp.DigitalNetB2,"replications":4},None),
@@ -49,14 +58,14 @@ def main(problem, dimension, num_levels, m_min, m_max, true_solution, dataroot, 
         ## IGP 
         ##   FAST
         ##       LATTICE 
-        (r"IGP    Lattice  Fast  SI  $\alpha=1$",mp.GreedyGaussianProcessMLQMCIterator,{"discrete_distribution_type":qp.Lattice,"fast":True,"kwargs_fastgp_construct":kwargs_fastgp_construct,"kwargs_kernel_construct":{"alpha":1,**kwargs_kernel_construct},"kwargs_fastgp_fit":kwargs_fastgp_fit,"refit_gps":refit_igps},None),
-        (r"IGP    Lattice  Fast  SI  $\alpha=2$",mp.GreedyGaussianProcessMLQMCIterator,{"discrete_distribution_type":qp.Lattice,"fast":True,"kwargs_fastgp_construct":kwargs_fastgp_construct,"kwargs_kernel_construct":{"alpha":2,**kwargs_kernel_construct},"kwargs_fastgp_fit":kwargs_fastgp_fit,"refit_gps":refit_igps},None),
-        (r"IGP    Lattice  Fast  SI  $\alpha=3$",mp.GreedyGaussianProcessMLQMCIterator,{"discrete_distribution_type":qp.Lattice,"fast":True,"kwargs_fastgp_construct":kwargs_fastgp_construct,"kwargs_kernel_construct":{"alpha":3,**kwargs_kernel_construct},"kwargs_fastgp_fit":kwargs_fastgp_fit,"refit_gps":refit_igps},None),
-        (r"IGP    Lattice  Fast  SI  $\alpha=4$",mp.GreedyGaussianProcessMLQMCIterator,{"discrete_distribution_type":qp.Lattice,"fast":True,"kwargs_fastgp_construct":kwargs_fastgp_construct,"kwargs_kernel_construct":{"alpha":4,**kwargs_kernel_construct},"kwargs_fastgp_fit":kwargs_fastgp_fit,"refit_gps":refit_igps},None),
-        (r"IGP    Lattice  Fast  SI  $\alpha=1$ Baker",mp.GreedyGaussianProcessMLQMCIterator,{"discrete_distribution_type":qp.Lattice,"fast":True,"kwargs_fastgp_construct":kwargs_fastgp_construct,"kwargs_kernel_construct":{"alpha":1,**kwargs_kernel_construct},"kwargs_fastgp_fit":kwargs_fastgp_fit,"refit_gps":refit_igps},"BAKER"),
-        (r"IGP    Lattice  Fast  SI  $\alpha=2$ Baker",mp.GreedyGaussianProcessMLQMCIterator,{"discrete_distribution_type":qp.Lattice,"fast":True,"kwargs_fastgp_construct":kwargs_fastgp_construct,"kwargs_kernel_construct":{"alpha":2,**kwargs_kernel_construct},"kwargs_fastgp_fit":kwargs_fastgp_fit,"refit_gps":refit_igps},"BAKER"),
-        (r"IGP    Lattice  Fast  SI  $\alpha=3$ Baker",mp.GreedyGaussianProcessMLQMCIterator,{"discrete_distribution_type":qp.Lattice,"fast":True,"kwargs_fastgp_construct":kwargs_fastgp_construct,"kwargs_kernel_construct":{"alpha":3,**kwargs_kernel_construct},"kwargs_fastgp_fit":kwargs_fastgp_fit,"refit_gps":refit_igps},"BAKER"),
-        (r"IGP    Lattice  Fast  SI  $\alpha=4$ Baker",mp.GreedyGaussianProcessMLQMCIterator,{"discrete_distribution_type":qp.Lattice,"fast":True,"kwargs_fastgp_construct":kwargs_fastgp_construct,"kwargs_kernel_construct":{"alpha":4,**kwargs_kernel_construct},"kwargs_fastgp_fit":kwargs_fastgp_fit,"refit_gps":refit_igps},"BAKER"),
+        # (r"IGP    Lattice  Fast  SI  $\alpha=1$",mp.GreedyGaussianProcessMLQMCIterator,{"discrete_distribution_type":qp.Lattice,"fast":True,"kwargs_fastgp_construct":kwargs_fastgp_construct,"kwargs_kernel_construct":{"alpha":1,**kwargs_kernel_construct},"kwargs_fastgp_fit":kwargs_fastgp_fit,"refit_gps":refit_igps},None),
+        # (r"IGP    Lattice  Fast  SI  $\alpha=2$",mp.GreedyGaussianProcessMLQMCIterator,{"discrete_distribution_type":qp.Lattice,"fast":True,"kwargs_fastgp_construct":kwargs_fastgp_construct,"kwargs_kernel_construct":{"alpha":2,**kwargs_kernel_construct},"kwargs_fastgp_fit":kwargs_fastgp_fit,"refit_gps":refit_igps},None),
+        # (r"IGP    Lattice  Fast  SI  $\alpha=3$",mp.GreedyGaussianProcessMLQMCIterator,{"discrete_distribution_type":qp.Lattice,"fast":True,"kwargs_fastgp_construct":kwargs_fastgp_construct,"kwargs_kernel_construct":{"alpha":3,**kwargs_kernel_construct},"kwargs_fastgp_fit":kwargs_fastgp_fit,"refit_gps":refit_igps},None),
+        # (r"IGP    Lattice  Fast  SI  $\alpha=4$",mp.GreedyGaussianProcessMLQMCIterator,{"discrete_distribution_type":qp.Lattice,"fast":True,"kwargs_fastgp_construct":kwargs_fastgp_construct,"kwargs_kernel_construct":{"alpha":4,**kwargs_kernel_construct},"kwargs_fastgp_fit":kwargs_fastgp_fit,"refit_gps":refit_igps},None),
+        # (r"IGP    Lattice  Fast  SI  $\alpha=1$ Baker",mp.GreedyGaussianProcessMLQMCIterator,{"discrete_distribution_type":qp.Lattice,"fast":True,"kwargs_fastgp_construct":kwargs_fastgp_construct,"kwargs_kernel_construct":{"alpha":1,**kwargs_kernel_construct},"kwargs_fastgp_fit":kwargs_fastgp_fit,"refit_gps":refit_igps},"BAKER"),
+        # (r"IGP    Lattice  Fast  SI  $\alpha=2$ Baker",mp.GreedyGaussianProcessMLQMCIterator,{"discrete_distribution_type":qp.Lattice,"fast":True,"kwargs_fastgp_construct":kwargs_fastgp_construct,"kwargs_kernel_construct":{"alpha":2,**kwargs_kernel_construct},"kwargs_fastgp_fit":kwargs_fastgp_fit,"refit_gps":refit_igps},"BAKER"),
+        # (r"IGP    Lattice  Fast  SI  $\alpha=3$ Baker",mp.GreedyGaussianProcessMLQMCIterator,{"discrete_distribution_type":qp.Lattice,"fast":True,"kwargs_fastgp_construct":kwargs_fastgp_construct,"kwargs_kernel_construct":{"alpha":3,**kwargs_kernel_construct},"kwargs_fastgp_fit":kwargs_fastgp_fit,"refit_gps":refit_igps},"BAKER"),
+        # (r"IGP    Lattice  Fast  SI  $\alpha=4$ Baker",mp.GreedyGaussianProcessMLQMCIterator,{"discrete_distribution_type":qp.Lattice,"fast":True,"kwargs_fastgp_construct":kwargs_fastgp_construct,"kwargs_kernel_construct":{"alpha":4,**kwargs_kernel_construct},"kwargs_fastgp_fit":kwargs_fastgp_fit,"refit_gps":refit_igps},"BAKER"),
         ##       DNET
         (r"IGP    DNet     Fast  DSI Adaptive  ",mp.GreedyGaussianProcessMLQMCIterator,{"discrete_distribution_type":qp.DigitalNetB2,"kwargs_discrete_distrib_construct":{"alpha":1,**kwargs_discrete_distrib_construct},"fast":True,"kwargs_fastgp_construct":kwargs_fastgp_construct,"kwargs_kernel_construct":{"alpha":1,**kwargs_kernel_construct},"kwargs_fastgp_fit":kwargs_fastgp_fit,"refit_gps":refit_igps,"kernel_class":qp.KernelDigShiftInvarAdaptiveAlpha},None),
         (r"IGP    DNet     Fast  DSI $\alpha=1$",mp.GreedyGaussianProcessMLQMCIterator,{"discrete_distribution_type":qp.DigitalNetB2,"kwargs_discrete_distrib_construct":{"alpha":1,**kwargs_discrete_distrib_construct},"fast":True,"kwargs_fastgp_construct":kwargs_fastgp_construct,"kwargs_kernel_construct":{"alpha":1,**kwargs_kernel_construct},"kwargs_fastgp_fit":kwargs_fastgp_fit,"refit_gps":refit_igps},None),
@@ -159,7 +168,7 @@ def main(problem, dimension, num_levels, m_min, m_max, true_solution, dataroot, 
         file.flush()
     file.close()
     data = {
-        "problem_name": problem.__name__,
+        "problem_name": problem_name,
         "dimension": dimension,
         "num_levels": num_levels,
         "true_solution": true_solution,
@@ -177,16 +186,58 @@ def main(problem, dimension, num_levels, m_min, m_max, true_solution, dataroot, 
     np.save(dataroot+"data.%d.%d.npy"%(trial_start,trial_end),data)
 
 if __name__=="__main__":
+    tag = "NEW"
     force_experiment = True
-    trials = 100
-    parallel = 10
-    # problem_dim_levels_ms = (analytic,2,4,2,15)
-    problem_dim_levels_ms = (borehole,8,2,2,13)
-    # problem_dim_levels_ms = (elliptic,8,4,2,14)
-    # problem_dim_levels_ms = (asian_option,16,8,3,10)
-    # problem_dim_levels_ms = (steady_state_diffusion_1d,9,5,2,9)
-    problem,dimension,num_levels,m_min,m_max = problem_dim_levels_ms
-    dataroot = os.path.dirname(os.path.abspath(__file__))+"/budgeted_comparison_data/comp.%s.d%d.levels%d.BIG/"%(problem.__name__,dimension,num_levels)
+    trials = 10
+    parallel = 1
+
+    if False:
+        problem_name = "Analytic"
+        problem = analytic
+        dimension = 2
+        num_levels = 4
+        m_min = 2
+        m_max = 15
+    elif False:
+        problem_name = "Borehole"
+        problem = borehole
+        dimension = 8
+        num_levels = 2
+        m_min = 2
+        m_max = 13
+    elif False:
+        problem_name = "Elliptic PDE"
+        problem = elliptic
+        dimension = 8
+        num_levels = 4
+        m_min = 2
+        m_max = 14
+    elif False:
+        problem_name = "Asian Option KL"
+        problem = asian_option
+        dimension = 16
+        num_levels = 8
+        m_min = 3
+        m_max = 10
+    elif False:
+        problem_name = "Steady State Diffusion PDE"
+        problem = steady_state_diffusion_1d
+        dimension = 9
+        num_levels = 5
+        m_min = 2
+        m_max = 9
+        problem_dim_levels_ms = (steady_state_diffusion_1d,9,5,2,9)
+    elif True:
+        problem_name = "Asian Option"
+        problem = MLFinancialOption()
+        dimension = problem.ds
+        num_levels = problem.levels
+        m_min = 2
+        m_max = 7
+    else:
+        raise Exception("please set one of the problem cases to true")
+
+    dataroot = os.path.dirname(os.path.abspath(__file__))+"/budgeted_comparison_data/comp.%s.%s/"%(problem_name,tag)
     # directory setup
     if os.path.exists(dataroot) and (not force_experiment):
         print("experiment %s exists, ending program"%dataroot)
@@ -204,12 +255,12 @@ if __name__=="__main__":
     if parallel==1:
         for trial_start,trial_end in trial_blocks:
             # run experiments 
-            main(problem, dimension, num_levels, m_min, m_max, true_solution, dataroot, trial_start, trial_end)
+            main(problem_name, problem, dimension, num_levels, m_min, m_max, true_solution, dataroot, trial_start, trial_end)
     else:
         print("%d CPUs available, using parallel = %d CPUs"%(os.cpu_count(),parallel))
         processes = []
         for trial_start,trial_end in trial_blocks:
-            process = multiprocessing.Process(target=main, args=(problem, dimension, num_levels, m_min, m_max, true_solution, dataroot, trial_start, trial_end))
+            process = multiprocessing.Process(target=main, args=(problem_name, problem, dimension, num_levels, m_min, m_max, true_solution, dataroot, trial_start, trial_end))
             processes.append(process)
         for process in processes:
             process.start()
