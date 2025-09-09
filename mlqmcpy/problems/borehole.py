@@ -38,12 +38,12 @@ def borehole(level, samples=None):
     L  = samples[:,6]
     Kw = samples[:,7]
     if level==0:
-        C1 = 2 
+        C1 = 2 *np.pi
         C2 = 1
     elif level==1:
         C1 = 5 
         C2 = 1.5
-    frac1 = C1 * np.pi * Tu * (Hu-Hl);
+    frac1 = C1 * Tu * (Hu-Hl);
     frac2a = 2*L*Tu / (np.log(r/rw)*rw**2*Kw);
     frac2b = Tu / Tl;
     frac2 = np.log(r/rw) * (C2+frac2a+frac2b);
