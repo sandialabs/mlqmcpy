@@ -1,0 +1,16 @@
+{
+    "Asian": {
+        "option": "ASIAN",
+        "call_put": "CALL",
+        "asian_mean": "GEOMETRIC",
+        "asian_mean_quadrature_rule": "RIGHT",
+        "volatility": 0.5,
+        "start_price": 39,
+        "strike_price": 40,
+        "interest_rate": 0.05,
+        "t_final": 1,
+        "barrier_in_out": "IN", 
+        "barrier_price": 38,
+        "digital_payout": 10
+    }
+}

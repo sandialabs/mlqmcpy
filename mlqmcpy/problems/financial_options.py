@@ -1,7 +1,8 @@
 import qmcpy as qp 
 import numpy as np 
 import types
-import copy 
+import json 
+import os 
 
 class MLFinancialOption(object):
     """"
@@ -12,9 +13,11 @@ class MLFinancialOption(object):
     >>> mlopts.ds 
     array([   8,   16,   32,   64,  128,  256,  512, 1024])
     >>> l = 3
-    >>> x = rng.uniform(size=(5,mlopts.ds[l])
+    >>> x = rng.uniform(size=(5,mlopts.ds[l]))
     >>> mlopts(level=l,samples=x)
+    array([2.84580282, 0.        , 0.        , 0.        , 0.        ])
     >>> mlopts.ml(level=l,samples=x)
+    array([-0.08699805,  0.        ,  0.        ,  0.        ,  0.        ])
     >>> mlopts.exact_values
     array([4.40269838, 4.16711993, 4.05041723, 3.99232671, 3.96334524,
            3.94887027, 3.9416367 , 3.9380209 ])
@@ -28,26 +31,17 @@ class MLFinancialOption(object):
     >>> mlopts.exact.Q.mean(np.inf)
     np.float64(3.9344057385143216)
     """
-    DEFAULT_KWARGS = {
-        "option": "ASIAN",
-        "call_put": "CALL",
-        "asian_mean": "GEOMETRIC",
-        "asian_mean_quadrature_rule": "RIGHT",
-        "volatility": .5,
-        "start_price": 39,
-        "strike_price": 40,
-        "interest_rate": 0.05,
-        "t_final": 1,
-        "barrier_in_out": "IN", 
-        "barrier_price": 38,
-        "digital_payout": 10,
-    }
+    
     def __init__(
             self,
             levels = 8,
-            qmcpy_financial_option_args = DEFAULT_KWARGS,
+            qmcpy_financial_option_args = "Asian",
             d_coarsest = 8,
             ):
+        if isinstance(qmcpy_financial_option_args,str):
+            with open(os.path.dirname(os.path.realpath(__file__))+"/financial_options_settings.json","r") as file:
+                kwargs = json.load(file)
+            qmcpy_financial_option_args = kwargs[qmcpy_financial_option_args]
         option_l0 = qp.FinancialOption(
             qp.IIDStdUniform(d_coarsest),
             level = 0, 
