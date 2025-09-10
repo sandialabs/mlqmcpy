@@ -4,30 +4,30 @@
         "call_put": "CALL",
         "asian_mean": "GEOMETRIC",
         "asian_mean_quadrature_rule": "RIGHT",
-        "volatility": 0.5,
-        "start_price": 39,
-        "strike_price": 40,
+        "volatility": 0.2,
+        "start_price": 100,
+        "strike_price": 100,
+        "interest_rate": 0.05,
+        "t_final": 1
+    },
+    "LOOKBACK": {
+        "option": "LOOKBACK",
+        "call_put": "CALL",
+        "volatility": 0.2,
+        "start_price": 100,
+        "strike_price": 100,
         "interest_rate": 0.05,
         "t_final": 1
     },
     "BARRIER": {
         "option": "BARRIER",
         "call_put": "CALL",
-        "volatility": 0.5,
-        "start_price": 39,
-        "strike_price": 40,
+        "volatility": 0.2,
+        "start_price": 100,
+        "strike_price": 100,
         "interest_rate": 0.05,
         "t_final": 1,
         "barrier_in_out": "IN", 
-        "barrier_price": 170
-    },
-    "LOOKBACK": {
-        "option": "LOOKBACK",
-        "call_put": "CALL",
-        "volatility": 0.5,
-        "start_price": 39,
-        "strike_price": 40,
-        "interest_rate": 0.05,
-        "t_final": 1
+        "barrier_price": 110
     }
 }

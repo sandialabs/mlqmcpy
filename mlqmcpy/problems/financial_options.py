@@ -15,23 +15,23 @@ class MLFinancialOption(object):
     >>> l = 3
     >>> x = rng.uniform(size=(5,mlopts.ds[l]))
     >>> mlopts(level=l,samples=x)
-    array([2.84580282, 0.        , 0.        , 0.        , 0.        ])
+    array([6.84079169, 0.        , 0.        , 0.        , 0.        ])
     >>> mlopts.ml(level=l,samples=x)
-    array([-0.08699805,  0.        ,  0.        ,  0.        ,  0.        ])
+    array([-0.13455718,  0.        ,  0.        ,  0.        ,  0.        ])
     >>> mlopts.exact_values
-    array([4.40269838, 4.16711993, 4.05041723, 3.99232671, 3.96334524,
-           3.94887027, 3.9416367 , 3.9380209 ])
+    array([6.13765156, 5.84167235, 5.69411372, 5.62043443, 5.58361875,
+           5.56521677, 5.55601722, 5.55141781])
     >>> mlopts.exact_diffs
-    array([ 4.40269838e+00, -2.35578448e-01, -1.16702694e-01, -5.80905233e-02,
-           -2.89814721e-02, -1.44749702e-02, -7.23356662e-03, -3.61580658e-03])
+    array([ 6.13765156e+00, -2.95979207e-01, -1.47558630e-01, -7.36792928e-02,
+           -3.68156810e-02, -1.84019843e-02, -9.19954533e-03, -4.59941314e-03])
     >>> mlopts.exact.Q.mean(-1)
-    np.float64(3.938020895052585)
+    np.float64(5.5514178080755245)
     >>> mlopts.exact.Y.mean(-1)
-    np.float64(-0.003615806583026515)
+    np.float64(-0.00459941313865464)
     >>> mlopts.exact.Q.mean(np.inf)
-    np.float64(3.9344057385143216)
+    np.float64(5.546818633789201)
 
-    >>> for opt in ["ASIAN","BARRIER","LOOKBACK"]:
+    >>> for opt in ["ASIAN","LOOKBACK","BARRIER"]:
     ...     print(opt)
     ...     mlopts = MLFinancialOption(qmcpy_financial_option_args=opt)
     ...     qhat_prev = 0
@@ -42,8 +42,33 @@ class MLFinancialOption(object):
     ...         yhat_l = qhat_l-qhat_prev
     ...         print("    Qhat[l] = %-10.3f Yhat[l] = %.2e"%(qhat_l,yhat_l))
     ...         qhat_prev = qhat_l
-
-
+    ASIAN
+        Qhat[l] = 6.137      Yhat[l] = 6.14e+00
+        Qhat[l] = 5.842      Yhat[l] = -2.96e-01
+        Qhat[l] = 5.694      Yhat[l] = -1.48e-01
+        Qhat[l] = 5.624      Yhat[l] = -6.96e-02
+        Qhat[l] = 5.584      Yhat[l] = -4.02e-02
+        Qhat[l] = 5.568      Yhat[l] = -1.58e-02
+        Qhat[l] = 5.556      Yhat[l] = -1.22e-02
+        Qhat[l] = 5.551      Yhat[l] = -5.01e-03
+    LOOKBACK
+        Qhat[l] = 12.991     Yhat[l] = 1.30e+01
+        Qhat[l] = 14.384     Yhat[l] = 1.39e+00
+        Qhat[l] = 15.278     Yhat[l] = 8.94e-01
+        Qhat[l] = 15.917     Yhat[l] = 6.39e-01
+        Qhat[l] = 16.324     Yhat[l] = 4.07e-01
+        Qhat[l] = 16.610     Yhat[l] = 2.86e-01
+        Qhat[l] = 16.786     Yhat[l] = 1.76e-01
+        Qhat[l] = 16.892     Yhat[l] = 1.05e-01
+    BARRIER
+        Qhat[l] = 10.105     Yhat[l] = 1.01e+01
+        Qhat[l] = 10.136     Yhat[l] = 3.12e-02
+        Qhat[l] = 10.187     Yhat[l] = 5.07e-02
+        Qhat[l] = 10.241     Yhat[l] = 5.47e-02
+        Qhat[l] = 10.291     Yhat[l] = 4.94e-02
+        Qhat[l] = 10.285     Yhat[l] = -5.41e-03
+        Qhat[l] = 10.273     Yhat[l] = -1.22e-02
+        Qhat[l] = 10.297     Yhat[l] = 2.36e-02
     """
     
     def __init__(

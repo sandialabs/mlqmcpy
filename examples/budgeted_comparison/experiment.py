@@ -235,7 +235,14 @@ if __name__=="__main__":
         problem_dim_levels_ms = (steady_state_diffusion_1d,9,5,2,9)
     elif True:
         problem_name = "Asian Option"
-        problem = MLFinancialOption()
+        problem = MLFinancialOption(qmcpy_financial_option_args="ASIAN")
+        dimension = problem.ds
+        num_levels = problem.levels
+        m_min = 4
+        m_max = 10
+    elif False:
+        problem_name = "Lookback Option"
+        problem = MLFinancialOption(qmcpy_financial_option_args="LOOKBACK")
         dimension = problem.ds
         num_levels = problem.levels
         m_min = 4
