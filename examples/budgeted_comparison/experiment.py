@@ -20,7 +20,8 @@ import gc
 import sys
 import multiprocessing
 
-def main(problem_name, dataroot, trial_start, trial_end, true_solution, ref_approx_seed):
+def main(problem_name, dataroot, trial_start, trial_end, true_solution, ref_approx_seed, cuda_idx):
+    cudadevice = "cuda:%d"%cuda_idx
     if problem_name == "Analytic":
         problem = analytic
         dimension = 2
@@ -79,7 +80,7 @@ def main(problem_name, dataroot, trial_start, trial_end, true_solution, ref_appr
         initial_sampling_alloc = "PROP"
     elif problem_name == "Darcy Flow PDE 2D":
         assert torch.cuda.is_available(), "Darcy Flow requires running on GPU"
-        problem = DarcyFlow2d(device="cuda:3")
+        problem = DarcyFlow2d(device=cudadevice)
         dimension = problem.d
         num_levels = problem.levels
         m_min = 3
@@ -110,13 +111,13 @@ def main(problem_name, dataroot, trial_start, trial_end, true_solution, ref_appr
     max_budgets = 2**np.arange(m_min,m_max)
     initial_cost_prop_max_budget = 1/4
     kwargs_discrete_distrib_construct = {}
-    kwargs_kernel_construct = {"device":"cuda:3","requires_grad_scale":True,"requires_grad_lengthscales":True}
+    kwargs_kernel_construct = {"device":cudadevice,"requires_grad_scale":True,"requires_grad_lengthscales":True}
     kwargs_kernel_mt_construct = {"rank_factor":num_levels}
     kwargs_fastgp_construct = {"requires_grad_noise":False}
     kwargs_fastgp_fit = {
         "loss_metric": "MLL",
         "stop_crit_improvement_threshold": 1e-1,
-        "verbose": 1,
+        "verbose": 0,
         # "lr": 1e0,
     }
     refit_igps = True
@@ -138,7 +139,7 @@ def main(problem_name, dataroot, trial_start, trial_end, true_solution, ref_appr
         # (r"R-MLQMC Lattice $R=16$ Baker",mp.GreedyMLQMCIterator,{"discrete_distribution_type":qp.Lattice,"replications":16},"BAKER"),
         ##  DNET 
         # (r"R-MLQMC DNet $R=2$",mp.GreedyMLQMCIterator,{"discrete_distribution_type":qp.DigitalNetB2,"replications":2},None),
-        # (r"R-MLQMC DNet $R=4$",mp.GreedyMLQMCIterator,{"discrete_distribution_type":qp.DigitalNetB2,"replications":4},None),
+        (r"R-MLQMC DNet $R=4$",mp.GreedyMLQMCIterator,{"discrete_distribution_type":qp.DigitalNetB2,"replications":4},None),
         # (r"R-MLQMC DNet $R=8$",mp.GreedyMLQMCIterator,{"discrete_distribution_type":qp.DigitalNetB2,"replications":8},None),
         # (r"R-MLQMC DNet $R=16$",mp.GreedyMLQMCIterator,{"discrete_distribution_type":qp.DigitalNetB2,"replications":16},None),
         ## IGP 
@@ -186,10 +187,10 @@ def main(problem_name, dataroot, trial_start, trial_end, true_solution, ref_appr
     # experiment
     t0 = time.perf_counter()
     names = [name for (name,IteratorClass,kwargs,tf_type) in zip_name_IteratorClass_kwargs]
-    file.write("max_budgets: %s\n"%max_budgets)
-    file.write("cost_per_level: %s\n"%np.array_repr(cost_per_level).replace('\n', ''))
     file.write("true_solution = %.5e\n"%true_solution)
-    file.write("\n"+("*"*100)+"\n\n")
+    file.write("cost_per_level: %s\n"%np.array_repr(cost_per_level).replace('\n', ''))
+    file.write("max_budgets: %s\n"%max_budgets)
+    file.write("\n")
     costs = np.nan*np.ones((len(zip_name_IteratorClass_kwargs),len(max_budgets),trials))
     means = np.nan*np.ones((len(zip_name_IteratorClass_kwargs),len(max_budgets),trials))
     std_errors = np.nan*np.ones((len(zip_name_IteratorClass_kwargs),len(max_budgets),trials))
@@ -281,7 +282,8 @@ if __name__=="__main__":
     force_experiment = True
     tag = "NEW"
     trials = 10
-    parallel = 1
+    parallel = 2
+    cuda_idxs = [3,4]
     ref_approx_seed = 7
     problem_name,n_ref_approx = (
         # "Analytic",None
@@ -294,8 +296,9 @@ if __name__=="__main__":
         "Darcy Flow PDE 2D",2**11
     )
     print()
-    dataroot = os.path.dirname(os.path.abspath(__file__))+"/budgeted_comparison_data/comp.%s.%s/"%(problem_name,tag)
+    assert len(cuda_idxs)>=parallel
     # directory setup
+    dataroot = os.path.dirname(os.path.abspath(__file__))+"/budgeted_comparison_data/comp.%s.%s/"%(problem_name,tag)
     if os.path.exists(dataroot) and (not force_experiment):
         print("experiment %s exists, ending program"%dataroot)
         sys.exit(0)
@@ -305,9 +308,13 @@ if __name__=="__main__":
     assert parallel>0
     # approximate true solution 
     if parallel==1:
-        main(problem_name, dataroot, 0, n_ref_approx, None, ref_approx_seed)
+        main(problem_name, dataroot, 0, n_ref_approx, None, ref_approx_seed, cuda_idxs[0])
     else:
-        assert False
+        bs = int(np.ceil(n_ref_approx/parallel))
+        n_blocks = [(i*bs,min(n_ref_approx,(i+1)*bs)) for i in range(parallel)]
+        processes = [torch.multiprocessing.Process(target=main,args=(problem_name,dataroot,n_min,n_max,None,ref_approx_seed, cuda_idxs[i])) for i,(n_min,n_max) in enumerate(n_blocks)]
+        for p in processes: p.start()
+        for p in processes: p.join()
     true_solution = 0
     for file in os.listdir(dataroot):
         fparts = file.split('.')
@@ -317,20 +324,15 @@ if __name__=="__main__":
         ymean = data["ymean"]
         true_solution += ymean*(n_max-n_min)
     true_solution = true_solution/n_ref_approx
-    bs = int(np.ceil(trials/parallel))
-    trial_blocks = [(i*bs,min(trials,(i+1)*bs)) for i in range(parallel)]
+    # run ML(Q)MC simulations
     if parallel==1:
-        main(problem_name, dataroot, 0, trials, true_solution, None)
+        main(problem_name, dataroot, 0, trials, true_solution, None, cuda_idxs[0])
     else:
-        assert False
         print("%d CPUs available, using parallel = %d CPUs"%(os.cpu_count(),parallel))
-        processes = []
-        for trial_start,trial_end in trial_blocks:
-            process = multiprocessing.Process(target=main, args=(problem_name, true_solution, dataroot, trial_start, trial_end))
-            processes.append(process)
-        for process in processes:
-            process.start()
-        for process in processes:
-            process.join()
+        bs = int(np.ceil(trials/parallel))
+        trial_blocks = [(i*bs,min(trials,(i+1)*bs)) for i in range(parallel)]
+        processes = [torch.multiprocessing.Process(target=main,args=(problem_name,dataroot,trial_start,trial_end,true_solution,None,cuda_idxs[i])) for i,(trial_start,trial_end) in enumerate(trial_blocks)]
+        for p in processes: p.start()
+        for p in processes: p.join()
     print()
         
