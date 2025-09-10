@@ -20,8 +20,7 @@ import gc
 import sys
 import multiprocessing
 
-def main(problem_name, dataroot, trial_start, trial_end, true_solution, ref_approx_seed, cuda_idx):
-    cudadevice = "cuda:%d"%cuda_idx
+def main(problem_name, dataroot, trial_start, trial_end, true_solution, ref_approx_seed, device):
     if problem_name == "Analytic":
         problem = analytic
         dimension = 2
@@ -79,12 +78,12 @@ def main(problem_name, dataroot, trial_start, trial_end, true_solution, ref_appr
         cost_per_level = 2.**(np.arange(num_levels)-num_levels+1)
         initial_sampling_alloc = "PROP"
     elif problem_name == "Darcy Flow PDE 2D":
-        assert torch.cuda.is_available(), "Darcy Flow requires running on GPU"
-        problem = DarcyFlow2d(device=cudadevice)
+        assert device is not None, "Darcy Flow requires running on GPU"
+        problem = DarcyFlow2d(device=device)
         dimension = problem.d
         num_levels = problem.levels
         m_min = 3
-        m_max = 8
+        m_max = 10
         cost_per_level = problem.adjusted_costs
         initial_sampling_alloc = "PROP"
     else:
@@ -111,7 +110,11 @@ def main(problem_name, dataroot, trial_start, trial_end, true_solution, ref_appr
     max_budgets = 2**np.arange(m_min,m_max)
     initial_cost_prop_max_budget = 1/4
     kwargs_discrete_distrib_construct = {}
-    kwargs_kernel_construct = {"device":cudadevice,"requires_grad_scale":True,"requires_grad_lengthscales":True}
+    kwargs_kernel_construct = {
+        "device": device,
+        "requires_grad_scale": True,
+        "requires_grad_lengthscales": True
+    }
     kwargs_kernel_mt_construct = {"rank_factor":num_levels}
     kwargs_fastgp_construct = {"requires_grad_noise":False}
     kwargs_fastgp_fit = {
@@ -126,7 +129,7 @@ def main(problem_name, dataroot, trial_start, trial_end, true_solution, ref_appr
     verbose = max(1,trials//10)
     zip_name_IteratorClass_kwargs = [
         ## MLMC
-        # ("MLMC    IID",mp.GreedyMLMCIterator,{},None),
+        ("MLMC    IID",mp.GreedyMLMCIterator,{},None),
         ## R-MLQMC
         ##  LATTICE
         # (r"R-MLQMC Lattice $R=2$",mp.GreedyMLQMCIterator,{"discrete_distribution_type":qp.Lattice,"replications":2},None),
@@ -138,10 +141,10 @@ def main(problem_name, dataroot, trial_start, trial_end, true_solution, ref_appr
         # (r"R-MLQMC Lattice $R=8$ Baker",mp.GreedyMLQMCIterator,{"discrete_distribution_type":qp.Lattice,"replications":8},"BAKER"),
         # (r"R-MLQMC Lattice $R=16$ Baker",mp.GreedyMLQMCIterator,{"discrete_distribution_type":qp.Lattice,"replications":16},"BAKER"),
         ##  DNET 
-        # (r"R-MLQMC DNet $R=2$",mp.GreedyMLQMCIterator,{"discrete_distribution_type":qp.DigitalNetB2,"replications":2},None),
-        # (r"R-MLQMC DNet $R=4$",mp.GreedyMLQMCIterator,{"discrete_distribution_type":qp.DigitalNetB2,"replications":4},None),
-        # (r"R-MLQMC DNet $R=8$",mp.GreedyMLQMCIterator,{"discrete_distribution_type":qp.DigitalNetB2,"replications":8},None),
-        # (r"R-MLQMC DNet $R=16$",mp.GreedyMLQMCIterator,{"discrete_distribution_type":qp.DigitalNetB2,"replications":16},None),
+        (r"R-MLQMC DNet $R=2$",mp.GreedyMLQMCIterator,{"discrete_distribution_type":qp.DigitalNetB2,"replications":2},None),
+        (r"R-MLQMC DNet $R=4$",mp.GreedyMLQMCIterator,{"discrete_distribution_type":qp.DigitalNetB2,"replications":4},None),
+        (r"R-MLQMC DNet $R=8$",mp.GreedyMLQMCIterator,{"discrete_distribution_type":qp.DigitalNetB2,"replications":8},None),
+        (r"R-MLQMC DNet $R=16$",mp.GreedyMLQMCIterator,{"discrete_distribution_type":qp.DigitalNetB2,"replications":16},None),
         ## IGP 
         ##   FAST
         ##       LATTICE 
@@ -157,7 +160,7 @@ def main(problem_name, dataroot, trial_start, trial_end, true_solution, ref_appr
         # (r"IGP    DNet     Fast  DSI Adaptive  ",mp.GreedyGaussianProcessMLQMCIterator,{"discrete_distribution_type":qp.DigitalNetB2,"kwargs_discrete_distrib_construct":{"alpha":1,**kwargs_discrete_distrib_construct},"fast":True,"kwargs_fastgp_construct":kwargs_fastgp_construct,"kwargs_kernel_construct":{"alpha":1,**kwargs_kernel_construct},"kwargs_fastgp_fit":kwargs_fastgp_fit,"refit_gps":refit_igps,"kernel_class":qp.KernelDigShiftInvarAdaptiveAlpha},None),
         # (r"IGP    DNet     Fast  DSI $\alpha=1$",mp.GreedyGaussianProcessMLQMCIterator,{"discrete_distribution_type":qp.DigitalNetB2,"kwargs_discrete_distrib_construct":{"alpha":1,**kwargs_discrete_distrib_construct},"fast":True,"kwargs_fastgp_construct":kwargs_fastgp_construct,"kwargs_kernel_construct":{"alpha":1,**kwargs_kernel_construct},"kwargs_fastgp_fit":kwargs_fastgp_fit,"refit_gps":refit_igps},None),
         # (r"IGP    DNet     Fast  DSI $\alpha=2$",mp.GreedyGaussianProcessMLQMCIterator,{"discrete_distribution_type":qp.DigitalNetB2,"kwargs_discrete_distrib_construct":{"alpha":1,**kwargs_discrete_distrib_construct},"fast":True,"kwargs_fastgp_construct":kwargs_fastgp_construct,"kwargs_kernel_construct":{"alpha":2,**kwargs_kernel_construct},"kwargs_fastgp_fit":kwargs_fastgp_fit,"refit_gps":refit_igps},None),
-        (r"IGP    DNet     Fast  DSI $\alpha=3$",mp.GreedyGaussianProcessMLQMCIterator,{"discrete_distribution_type":qp.DigitalNetB2,"kwargs_discrete_distrib_construct":{"alpha":1,**kwargs_discrete_distrib_construct},"fast":True,"kwargs_fastgp_construct":kwargs_fastgp_construct,"kwargs_kernel_construct":{"alpha":3,**kwargs_kernel_construct},"kwargs_fastgp_fit":kwargs_fastgp_fit,"refit_gps":refit_igps},None),
+        # (r"IGP    DNet     Fast  DSI $\alpha=3$",mp.GreedyGaussianProcessMLQMCIterator,{"discrete_distribution_type":qp.DigitalNetB2,"kwargs_discrete_distrib_construct":{"alpha":1,**kwargs_discrete_distrib_construct},"fast":True,"kwargs_fastgp_construct":kwargs_fastgp_construct,"kwargs_kernel_construct":{"alpha":3,**kwargs_kernel_construct},"kwargs_fastgp_fit":kwargs_fastgp_fit,"refit_gps":refit_igps},None),
         # (r"IGP    DNet     Fast  DSI $\alpha=4$",mp.GreedyGaussianProcessMLQMCIterator,{"discrete_distribution_type":qp.DigitalNetB2,"kwargs_discrete_distrib_construct":{"alpha":1,**kwargs_discrete_distrib_construct},"fast":True,"kwargs_fastgp_construct":kwargs_fastgp_construct,"kwargs_kernel_construct":{"alpha":4,**kwargs_kernel_construct},"kwargs_fastgp_fit":kwargs_fastgp_fit,"refit_gps":refit_igps},None),
         ## MTGPF
         ##   FAST 
@@ -281,9 +284,9 @@ if __name__=="__main__":
     torch.set_default_dtype(torch.float64)
     force_experiment = True
     tag = "NEW"
-    trials = 10
+    trials = 50
     parallel = 2
-    cuda_idxs = [3,4]
+    devices = ["cuda:3","cuda:4"]
     ref_approx_seed = 7
     problem_name,n_ref_approx = (
         # "Analytic",None
@@ -293,10 +296,10 @@ if __name__=="__main__":
         # "Steady State Diffusion PDE",2**18
         # "Asian Option",None
         # "Lookback Option",2**19
-        "Darcy Flow PDE 2D",2**12
+        "Darcy Flow PDE 2D",2**15
     )
     print()
-    assert len(cuda_idxs)>=parallel
+    assert len(devices)>=parallel
     # directory setup
     dataroot = os.path.dirname(os.path.abspath(__file__))+"/budgeted_comparison_data/comp.%s.%s/"%(problem_name,tag)
     if os.path.exists(dataroot) and (not force_experiment):
@@ -308,11 +311,11 @@ if __name__=="__main__":
     assert parallel>0
     # approximate true solution 
     if parallel==1:
-        main(problem_name, dataroot, 0, n_ref_approx, None, ref_approx_seed, cuda_idxs[0])
+        main(problem_name, dataroot, 0, n_ref_approx, None, ref_approx_seed, devices[0])
     else:
         bs = int(np.ceil(n_ref_approx/parallel))
         n_blocks = [(i*bs,min(n_ref_approx,(i+1)*bs)) for i in range(parallel)]
-        processes = [torch.multiprocessing.Process(target=main,args=(problem_name,dataroot,n_min,n_max,None,ref_approx_seed, cuda_idxs[i])) for i,(n_min,n_max) in enumerate(n_blocks)]
+        processes = [torch.multiprocessing.Process(target=main,args=(problem_name,dataroot,n_min,n_max,None,ref_approx_seed, devices[i])) for i,(n_min,n_max) in enumerate(n_blocks)]
         for p in processes: p.start()
         for p in processes: p.join()
     true_solution = 0
@@ -326,11 +329,11 @@ if __name__=="__main__":
     true_solution = true_solution/n_ref_approx
     # run ML(Q)MC simulations
     if parallel==1:
-        main(problem_name, dataroot, 0, trials, true_solution, None, cuda_idxs[0])
+        main(problem_name, dataroot, 0, trials, true_solution, None, devices[0])
     else:
         bs = int(np.ceil(trials/parallel))
         trial_blocks = [(i*bs,min(trials,(i+1)*bs)) for i in range(parallel)]
-        processes = [torch.multiprocessing.Process(target=main,args=(problem_name,dataroot,trial_start,trial_end,true_solution,None,cuda_idxs[i])) for i,(trial_start,trial_end) in enumerate(trial_blocks)]
+        processes = [torch.multiprocessing.Process(target=main,args=(problem_name,dataroot,trial_start,trial_end,true_solution,None,devices[i])) for i,(trial_start,trial_end) in enumerate(trial_blocks)]
         for p in processes: p.start()
         for p in processes: p.join()
     print()
