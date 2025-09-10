@@ -192,9 +192,9 @@ def main(problem_name, problem, dimension, num_levels, m_min, m_max, true_soluti
     np.save(dataroot+"data.%d.%d.npy"%(trial_start,trial_end),data)
 
 if __name__=="__main__":
-    force_experiment = False
+    force_experiment = True
     tag = "NEW"
-    trials = 25
+    trials = 100
     parallel = 1
 
     if False:
@@ -237,14 +237,14 @@ if __name__=="__main__":
         m_max = 9
         problem_dim_levels_ms = (steady_state_diffusion_1d,9,5,2,9)
         n_ref_approx = 2**18
-    elif False:
+    elif True:
         problem_name = "Asian Option"
         problem = MLFinancialOption(qmcpy_financial_option_args="ASIAN")
         dimension = problem.ds
         num_levels = problem.levels
         m_min = 4
         m_max = 10
-    elif True:
+    elif False:
         problem_name = "Lookback Option"
         problem = MLFinancialOption(qmcpy_financial_option_args="LOOKBACK")
         dimension = problem.ds
