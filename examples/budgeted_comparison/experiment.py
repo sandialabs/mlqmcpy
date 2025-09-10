@@ -7,7 +7,11 @@ from mlqmcpy.problems import (
     borehole,
     steady_state_diffusion_1d,
     MLFinancialOption,
-    DarcyFlow2d
+    DarcyFlow2d,
+    RidgeJump,
+    RidgeFinance,
+    RidgeKink,
+    RidgeSmooth,
 )
 
 import numpy as np
@@ -28,7 +32,7 @@ def main(problem_name, dataroot, trial_start, trial_end, true_solution, ref_appr
         m_min = 2
         m_max = 15
         cost_per_level = 2.**(np.arange(num_levels)-num_levels+1)
-        initial_sampling_alloc = "PROP"
+        initial_cost_prop_max_budget = 1/4
     elif problem_name == "Borehole":
         problem = borehole
         dimension = 8
@@ -36,7 +40,7 @@ def main(problem_name, dataroot, trial_start, trial_end, true_solution, ref_appr
         m_min = 2
         m_max = 13
         cost_per_level = 2.**(np.arange(num_levels)-num_levels+1)
-        initial_sampling_alloc = "PROP"
+        initial_cost_prop_max_budget = 1/4
     elif problem_name == "Elliptic PDE":
         problem = elliptic
         dimension = 8
@@ -44,7 +48,7 @@ def main(problem_name, dataroot, trial_start, trial_end, true_solution, ref_appr
         m_min = 2
         m_max = 14
         cost_per_level = 2.**(np.arange(num_levels)-num_levels+1)
-        initial_sampling_alloc = "PROP"
+        initial_cost_prop_max_budget = 1/4
     elif problem_name == "Asian Option KL":
         problem = asian_option
         dimension = 16
@@ -52,7 +56,7 @@ def main(problem_name, dataroot, trial_start, trial_end, true_solution, ref_appr
         m_min = 3
         m_max = 10
         cost_per_level = 2.**(np.arange(num_levels)-num_levels+1)
-        initial_sampling_alloc = "PROP"
+        initial_cost_prop_max_budget = 1/4
     elif problem_name == "Steady State Diffusion PDE":
         problem = steady_state_diffusion_1d
         dimension = 9
@@ -60,7 +64,7 @@ def main(problem_name, dataroot, trial_start, trial_end, true_solution, ref_appr
         m_min = 2
         m_max = 9
         cost_per_level = 2.**(np.arange(num_levels)-num_levels+1)
-        initial_sampling_alloc = "PROP"
+        initial_cost_prop_max_budget = 1/4
     elif problem_name == "Asian Option":
         problem = MLFinancialOption(qmcpy_financial_option_args="ASIAN")
         dimension = problem.ds
@@ -68,7 +72,7 @@ def main(problem_name, dataroot, trial_start, trial_end, true_solution, ref_appr
         m_min = 4
         m_max = 10
         cost_per_level = 2.**(np.arange(num_levels)-num_levels+1)
-        initial_sampling_alloc = "PROP"
+        initial_cost_prop_max_budget = 1/4
     elif problem_name == "Lookback Option":
         problem = MLFinancialOption(qmcpy_financial_option_args="LOOKBACK")
         dimension = problem.ds
@@ -76,7 +80,7 @@ def main(problem_name, dataroot, trial_start, trial_end, true_solution, ref_appr
         m_min = 4
         m_max = 10
         cost_per_level = 2.**(np.arange(num_levels)-num_levels+1)
-        initial_sampling_alloc = "PROP"
+        initial_cost_prop_max_budget = 1/4
     elif problem_name == "Darcy Flow PDE 2D":
         assert device is not None, "Darcy Flow requires running on GPU"
         problem = DarcyFlow2d(device=device)
@@ -85,7 +89,24 @@ def main(problem_name, dataroot, trial_start, trial_end, true_solution, ref_appr
         m_min = 3
         m_max = 10
         cost_per_level = problem.adjusted_costs
-        initial_sampling_alloc = "PROP"
+        initial_cost_prop_max_budget = 1/4
+    elif "Ridge" in problem_name:
+        if problem_name == "Ridge Jump":
+            problem = RidgeJump()
+        elif problem_name == "Ridge Kink":
+            problem = RidgeKink()
+        elif problem_name == "Ridge Smooth":
+            problem = RidgeSmooth()
+        elif problem_name == "Ridge Finance":
+            problem = RidgeFinance()
+        else:
+            raise Exception("invalid ridge problem %s"%problem_name)
+        dimension = 2
+        num_levels = 1
+        m_min = 4
+        m_max = 13
+        cost_per_level = np.ones(1)
+        initial_cost_prop_max_budget = 1
     else:
         raise Exception("invalid problem_name = %s"%problem_name)
     if true_solution is None:
@@ -107,8 +128,9 @@ def main(problem_name, dataroot, trial_start, trial_end, true_solution, ref_appr
     print("%s"%fname)
     file = open(fname,"w")
     # parameters 
+    initial_sampling_alloc = "PROP" # ["PROP","EQUAL"]
+    mtgp_budget_scheme = "GREEDY" # ["GREEDY","FULL"]
     max_budgets = 2**np.arange(m_min,m_max)
-    initial_cost_prop_max_budget = 1/4
     kwargs_discrete_distrib_construct = {}
     kwargs_kernel_construct = {
         "device": device,
@@ -125,7 +147,6 @@ def main(problem_name, dataroot, trial_start, trial_end, true_solution, ref_appr
     }
     refit_igps = True
     refit_mtgps = True
-    mtgp_budget_scheme = "GREEDY" # ["GREEDY","FULL"]
     verbose = max(1,trials//10)
     zip_name_IteratorClass_kwargs = [
         ## MLMC
@@ -145,6 +166,8 @@ def main(problem_name, dataroot, trial_start, trial_end, true_solution, ref_appr
         (r"R-MLQMC DNet $R=4$",mp.GreedyMLQMCIterator,{"discrete_distribution_type":qp.DigitalNetB2,"replications":4},None),
         (r"R-MLQMC DNet $R=8$",mp.GreedyMLQMCIterator,{"discrete_distribution_type":qp.DigitalNetB2,"replications":8},None),
         (r"R-MLQMC DNet $R=16$",mp.GreedyMLQMCIterator,{"discrete_distribution_type":qp.DigitalNetB2,"replications":16},None),
+        (r"R-MLQMC DNet $R=32$",mp.GreedyMLQMCIterator,{"discrete_distribution_type":qp.DigitalNetB2,"replications":32},None),
+        (r"R-MLQMC DNet $R=64$",mp.GreedyMLQMCIterator,{"discrete_distribution_type":qp.DigitalNetB2,"replications":64},None),
         ## IGP 
         ##   FAST
         ##       LATTICE 
@@ -157,11 +180,11 @@ def main(problem_name, dataroot, trial_start, trial_end, true_solution, ref_appr
         # (r"IGP    Lattice  Fast  SI  $\alpha=3$ Baker",mp.GreedyGaussianProcessMLQMCIterator,{"discrete_distribution_type":qp.Lattice,"fast":True,"kwargs_fastgp_construct":kwargs_fastgp_construct,"kwargs_kernel_construct":{"alpha":3,**kwargs_kernel_construct},"kwargs_fastgp_fit":kwargs_fastgp_fit,"refit_gps":refit_igps},"BAKER"),
         # (r"IGP    Lattice  Fast  SI  $\alpha=4$ Baker",mp.GreedyGaussianProcessMLQMCIterator,{"discrete_distribution_type":qp.Lattice,"fast":True,"kwargs_fastgp_construct":kwargs_fastgp_construct,"kwargs_kernel_construct":{"alpha":4,**kwargs_kernel_construct},"kwargs_fastgp_fit":kwargs_fastgp_fit,"refit_gps":refit_igps},"BAKER"),
         ##       DNET
-        # (r"IGP    DNet     Fast  DSI Adaptive  ",mp.GreedyGaussianProcessMLQMCIterator,{"discrete_distribution_type":qp.DigitalNetB2,"kwargs_discrete_distrib_construct":{"alpha":1,**kwargs_discrete_distrib_construct},"fast":True,"kwargs_fastgp_construct":kwargs_fastgp_construct,"kwargs_kernel_construct":{"alpha":1,**kwargs_kernel_construct},"kwargs_fastgp_fit":kwargs_fastgp_fit,"refit_gps":refit_igps,"kernel_class":qp.KernelDigShiftInvarAdaptiveAlpha},None),
-        # (r"IGP    DNet     Fast  DSI $\alpha=1$",mp.GreedyGaussianProcessMLQMCIterator,{"discrete_distribution_type":qp.DigitalNetB2,"kwargs_discrete_distrib_construct":{"alpha":1,**kwargs_discrete_distrib_construct},"fast":True,"kwargs_fastgp_construct":kwargs_fastgp_construct,"kwargs_kernel_construct":{"alpha":1,**kwargs_kernel_construct},"kwargs_fastgp_fit":kwargs_fastgp_fit,"refit_gps":refit_igps},None),
-        # (r"IGP    DNet     Fast  DSI $\alpha=2$",mp.GreedyGaussianProcessMLQMCIterator,{"discrete_distribution_type":qp.DigitalNetB2,"kwargs_discrete_distrib_construct":{"alpha":1,**kwargs_discrete_distrib_construct},"fast":True,"kwargs_fastgp_construct":kwargs_fastgp_construct,"kwargs_kernel_construct":{"alpha":2,**kwargs_kernel_construct},"kwargs_fastgp_fit":kwargs_fastgp_fit,"refit_gps":refit_igps},None),
-        # (r"IGP    DNet     Fast  DSI $\alpha=3$",mp.GreedyGaussianProcessMLQMCIterator,{"discrete_distribution_type":qp.DigitalNetB2,"kwargs_discrete_distrib_construct":{"alpha":1,**kwargs_discrete_distrib_construct},"fast":True,"kwargs_fastgp_construct":kwargs_fastgp_construct,"kwargs_kernel_construct":{"alpha":3,**kwargs_kernel_construct},"kwargs_fastgp_fit":kwargs_fastgp_fit,"refit_gps":refit_igps},None),
-        # (r"IGP    DNet     Fast  DSI $\alpha=4$",mp.GreedyGaussianProcessMLQMCIterator,{"discrete_distribution_type":qp.DigitalNetB2,"kwargs_discrete_distrib_construct":{"alpha":1,**kwargs_discrete_distrib_construct},"fast":True,"kwargs_fastgp_construct":kwargs_fastgp_construct,"kwargs_kernel_construct":{"alpha":4,**kwargs_kernel_construct},"kwargs_fastgp_fit":kwargs_fastgp_fit,"refit_gps":refit_igps},None),
+        (r"IGP    DNet     Fast  DSI Adaptive  ",mp.GreedyGaussianProcessMLQMCIterator,{"discrete_distribution_type":qp.DigitalNetB2,"kwargs_discrete_distrib_construct":{"alpha":1,**kwargs_discrete_distrib_construct},"fast":True,"kwargs_fastgp_construct":kwargs_fastgp_construct,"kwargs_kernel_construct":{"alpha":1,**kwargs_kernel_construct},"kwargs_fastgp_fit":kwargs_fastgp_fit,"refit_gps":refit_igps,"kernel_class":qp.KernelDigShiftInvarAdaptiveAlpha},None),
+        (r"IGP    DNet     Fast  DSI $\alpha=1$",mp.GreedyGaussianProcessMLQMCIterator,{"discrete_distribution_type":qp.DigitalNetB2,"kwargs_discrete_distrib_construct":{"alpha":1,**kwargs_discrete_distrib_construct},"fast":True,"kwargs_fastgp_construct":kwargs_fastgp_construct,"kwargs_kernel_construct":{"alpha":1,**kwargs_kernel_construct},"kwargs_fastgp_fit":kwargs_fastgp_fit,"refit_gps":refit_igps},None),
+        (r"IGP    DNet     Fast  DSI $\alpha=2$",mp.GreedyGaussianProcessMLQMCIterator,{"discrete_distribution_type":qp.DigitalNetB2,"kwargs_discrete_distrib_construct":{"alpha":1,**kwargs_discrete_distrib_construct},"fast":True,"kwargs_fastgp_construct":kwargs_fastgp_construct,"kwargs_kernel_construct":{"alpha":2,**kwargs_kernel_construct},"kwargs_fastgp_fit":kwargs_fastgp_fit,"refit_gps":refit_igps},None),
+        (r"IGP    DNet     Fast  DSI $\alpha=3$",mp.GreedyGaussianProcessMLQMCIterator,{"discrete_distribution_type":qp.DigitalNetB2,"kwargs_discrete_distrib_construct":{"alpha":1,**kwargs_discrete_distrib_construct},"fast":True,"kwargs_fastgp_construct":kwargs_fastgp_construct,"kwargs_kernel_construct":{"alpha":3,**kwargs_kernel_construct},"kwargs_fastgp_fit":kwargs_fastgp_fit,"refit_gps":refit_igps},None),
+        (r"IGP    DNet     Fast  DSI $\alpha=4$",mp.GreedyGaussianProcessMLQMCIterator,{"discrete_distribution_type":qp.DigitalNetB2,"kwargs_discrete_distrib_construct":{"alpha":1,**kwargs_discrete_distrib_construct},"fast":True,"kwargs_fastgp_construct":kwargs_fastgp_construct,"kwargs_kernel_construct":{"alpha":4,**kwargs_kernel_construct},"kwargs_fastgp_fit":kwargs_fastgp_fit,"refit_gps":refit_igps},None),
         ## MTGPF
         ##   FAST 
         ##       LATTICE
@@ -247,6 +270,8 @@ def main(problem_name, dataroot, trial_start, trial_end, true_solution, ref_appr
                 for iter, new_samples in enumerate(iterator):
                     new_results = {level: problem_tf(level,samples) for level,samples in new_samples.items()}
                     iterator.update(new_results)
+                if iterator.standard_error==0:
+                    pass
                 costs[i,j,t] = iterator.cost
                 means[i,j,t] = iterator.mean
                 std_errors[i,j,t] = iterator.standard_error
@@ -283,10 +308,12 @@ def main(problem_name, dataroot, trial_start, trial_end, true_solution, ref_appr
 if __name__=="__main__":
     torch.set_default_dtype(torch.float64)
     force_experiment = True
+    folder = "ridge_SL/d2/"
     tag = "NEW"
-    trials = 50
-    parallel = 2
-    devices = ["cuda:3","cuda:4"]
+    trials = 100
+    parallel = 10
+    # devices = ["cuda:3","cuda:4"]
+    devices = "cpu"
     ref_approx_seed = 7
     problem_name,n_ref_approx = (
         # "Analytic",None
@@ -296,12 +323,17 @@ if __name__=="__main__":
         # "Steady State Diffusion PDE",2**18
         # "Asian Option",None
         # "Lookback Option",2**19
-        "Darcy Flow PDE 2D",2**15
+        # "Darcy Flow PDE 2D",2**15
+        "Ridge Jump", 2**20
+        # "Ridge Kink", 2**20
+        # "Ridge Smooth", 2**20
+        # "Ridge Finance", 2**20
     )
     print()
+    if isinstance(devices,str): devices = [devices]*parallel
     assert len(devices)>=parallel
     # directory setup
-    dataroot = os.path.dirname(os.path.abspath(__file__))+"/budgeted_comparison_data/comp.%s.%s/"%(problem_name,tag)
+    dataroot = os.path.dirname(os.path.abspath(__file__))+"/budgeted_comparison_data/"+folder+"comp.%s.%s/"%(problem_name,tag)
     if os.path.exists(dataroot) and (not force_experiment):
         print("experiment %s exists, ending program"%dataroot)
         sys.exit(0)

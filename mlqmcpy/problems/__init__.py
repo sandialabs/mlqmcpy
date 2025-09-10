@@ -5,3 +5,4 @@ from .borehole import borehole
 from .dakota.steady_state_diffusion_1d import steady_state_diffusion_1d
 from .financial_options import MLFinancialOption
 from .darcy_flow_2d import DarcyFlow2d
+from .ridge_funcs import RidgeJump,RidgeFinance,RidgeKink,RidgeSmooth
