@@ -165,7 +165,7 @@ class GaussianProcessResponseAccumulator(ResponseAccumulator):
         import torch
         for response in responses:
             self._accumulator.add(response)
-        self._fgp.add_y_next(torch.tensor(responses))
+        self._fgp.add_y_next(torch.tensor(responses).to(self._fgp.device))
         if self._fgp.n.item()==len(responses) or self.refit_gps: # either the first iteration or we are forced to refit GPs
             self._fgp.fit(**self.kwargs_fastgp_fit)
         # self.n += len(responses)
@@ -179,7 +179,7 @@ class GaussianProcessResponseAccumulator(ResponseAccumulator):
     @property
     def mean(self):
         """Return the mean of responses."""
-        return self._fgp.post_cubature_mean().numpy() if len(self) else np.nan
+        return self._fgp.post_cubature_mean().cpu().numpy() if len(self) else np.nan
 
     @property
     def variance(self):
@@ -190,7 +190,7 @@ class GaussianProcessResponseAccumulator(ResponseAccumulator):
     @property
     def squared_standard_error(self):
         """Return the squared standard error."""
-        return self._fgp.post_cubature_var().numpy() if len(self) else np.nan
+        return self._fgp.post_cubature_var().cpu().numpy() if len(self) else np.nan
         # if not len(self):
         #     return np.nan
         # else:

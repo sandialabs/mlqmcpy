@@ -3,8 +3,8 @@ import qmcpy as qp
 
 class DarcyFlow2d(object):
     def __init__(self, 
-            levels = 4,
-            n_coarsest = 4,
+            levels = 3,
+            n_coarsest = 8,
             nonlinearity_factor = 1,
             f_kernel = qp.KernelMatern12,
             f_kernel_lengthscales = 0.1,
@@ -29,7 +29,7 @@ class DarcyFlow2d(object):
         self.p2s = self.ps**2
         self.p2max = self.p2s[-1]
         self.p2max_u = 3*self.p2max
-        self.d = self.p2max+self.p2max_u
+        self.d = int(self.p2max+self.p2max_u)
         x1 = torch.linspace(0,1,self.ns[-1]+1,device=self.device)[1:-1]
         x2 = torch.linspace(0,1,self.ns[-1]+1,device=self.device)[1:-1]
         x1mesh,x2mesh = torch.meshgrid(x1,x2,indexing="ij")
@@ -51,11 +51,12 @@ class DarcyFlow2d(object):
         self.icdf_norm = torch.distributions.Normal(loc=0.0, scale=1.0).icdf
         self.x1meshes = [self.thin(l,x1mesh) for l in range(self.levels)]
         self.x2meshes = [self.thin(l,x2mesh) for l in range(self.levels)]
-        self.lrs = [.9,.75]+[1]*max(0,self.levels-2)
-        self.num_newton_iters = np.array([100,75]+[5]*max(0,self.levels-2))[:self.levels]
-        self.relaxations = np.array([0,1e-5]+[0]*max(0,self.levels-2))[:self.levels]
+        self.lrs = [.75]+[1]*max(0,self.levels-1)
+        self.num_newton_iters = np.array([30]+[5]*max(0,self.levels-1))[:self.levels]
+        self.relaxations = np.array([1e-5]+[1e-8]*max(0,self.levels-1))[:self.levels]
         self.raw_costs = self.num_newton_iters*self.p2s**3
         self.adjusted_costs = self.raw_costs/self.raw_costs[-1]
+        self.block_sizes = np.array([100000,10000,1000])[:self.levels]
     def thin(self, level, x):
         import torch
         assert torch.get_default_dtype()==torch.float64
@@ -63,9 +64,7 @@ class DarcyFlow2d(object):
             level = self.levels-1
         skip = 2**(self.levels-level-1)
         return x[...,(skip-1)::skip,(skip-1)::skip]
-    def transform(self, level, unifs):
-        import torch
-        assert torch.get_default_dtype()==torch.float64
+    def transform_full(self, unifs):
         assert unifs.ndim>=1 and unifs.shape[-1]==self.d
         shape = list(unifs.shape[:-1])
         unifs_flat = unifs.reshape((-1,self.d))
@@ -74,12 +73,13 @@ class DarcyFlow2d(object):
         normals_f = normals[...,self.p2max_u:]
         u = (self.factor_u@normals_u.T).T.reshape(shape+[3,self.ps[-1],self.ps[-1]])
         f = (self.factor_f@normals_f.T).T.reshape(shape+[self.ps[-1],self.ps[-1]])
+        return u,f
+    def transform(self, level, unifs):
+        u,f = self.transform_full(unifs)
         u_thin = self.thin(level,u)
         f_thin = self.thin(level,f)
         return u_thin,f_thin
     def draw_u_f(self, level=-1, shape=2):
-        import torch
-        assert torch.get_default_dtype()==torch.float64
         if isinstance(shape,int): shape=[shape]
         unifs = torch.rand(list(shape)+[self.d],device=self.device)
         u_thin,f_thin = self.transform(level,unifs)
@@ -103,7 +103,6 @@ class DarcyFlow2d(object):
         if relaxation is None:
             relaxation = self.relaxations[level]
         import torch
-        assert torch.get_default_dtype()==torch.float64
         assert f.ndim==3 and u.ndim==4 and v0.ndim==3
         r = len(u) # number of realizations
         n = self.ns[level]-1
@@ -112,6 +111,7 @@ class DarcyFlow2d(object):
         assert f.shape==(r,n,n) and u.shape==(r,3,n,n) and v0.shape==(r,n,n)
         nrange = torch.arange(n,device=self.device)
         n2range = torch.arange(n2,device=self.device)
+        eyen2 = torch.eye(n2,device=self.device)
         # A_laplace.shape == (N,N)
         A1 = torch.zeros((n,n,n,n),device=self.device)
         for k in range(n):
@@ -141,7 +141,7 @@ class DarcyFlow2d(object):
         if verbose:
             _vstr = " "*verbose_indent+"%-15s| %-65s|"%("iter of %-6d"%num_newton_iter,"RMSE residual")
             print(_vstr)
-            _vstr = " "*verbose_indent+"%-15s| %-10s| %-13s%-13s%-13s%-13s%-13s|"%(" "*15," "*10,"5%","median","mean","95%","finite %")
+            _vstr = " "*verbose_indent+"%-15s| %-13s%-13s%-13s%-13s%-13s|"%(" "*15,"5%","median","mean","95%","finite %")
             print(_vstr)
             _vstr = " "*verbose_indent+"-"*(len(_vstr)-verbose_indent)
             print(_vstr)
@@ -182,9 +182,17 @@ class DarcyFlow2d(object):
             dFdv = partial_F(u,v)
             # Theta.shape==(R,N,N)
             Theta = torch.einsum("rki,rkj->rij",dFdv,dFdv) # batch dFdv[r].T@dFdv[r]
-            Theta[:,n2range,n2range] = Theta[:,n2range,n2range]+relaxation # add to diagonals
-            # L.shape==Linv.shape==(R,N,N)
-            L = torch.linalg.cholesky(Theta,upper=False)
+            relaxation_to_try = relaxation
+            while True:
+                try:
+                    # L.shape==Linv.shape==(R,N,N)
+                    L = torch.linalg.cholesky(Theta+relaxation_to_try*eyen2,upper=False)
+                    break
+                except torch._C._LinAlgError as e:
+                    # assert False, "level = %d"%level
+                    expected_str = "linalg.cholesky: The factorization could not be completed because the input is not positive-definite"
+                    if str(e)[:len(expected_str)]!=expected_str: raise
+                    relaxation_to_try = 2*relaxation_to_try
             Linv = torch.linalg.solve_triangular(L,torch.eye(L.size(-1),device=self.device),upper=False)
             # b.shape==delta.shape==v_new.shape==residual.shape==(R,N)
             b = torch.einsum("rik,ri->rk",dFdv,residual)
@@ -199,23 +207,33 @@ class DarcyFlow2d(object):
         return vs[:,-1,:,:],data
     def evaluate_from_u_f(self, level, u, f, pde_solve_kwargs={}):
         import torch
-        assert torch.get_default_dtype()==torch.float64
         assert f.shape[-2:]==u.shape[-2:]
         ogshape = u.shape[:-3]
         u = u.reshape([-1]+list(u.shape[-3:]))
         f = f.reshape([-1]+list(f.shape[-2:]))
-        y,data = self.pde_solve(
-            level = level,
-            f = f,
-            u = u, 
-            v0 = torch.ones([u.size(0)]+[self.ns[level]-1,self.ns[level]-1],device=self.device),
-            **pde_solve_kwargs,
-            )
+        n = u.size(0)
+        ys = []
+        i = 0
+        block_size = self.block_sizes[level]
+        while i<n:
+            i_next = min(i+block_size,n)
+            f_i = f[i:i_next]
+            u_i = u[i:i_next]
+            v0_i = torch.ones([u_i.size(0)]+[self.ns[level]-1,self.ns[level]-1],device=self.device)
+            y_i,data = self.pde_solve(
+                level = level,
+                f = f_i,
+                u = u_i, 
+                v0 = v0_i,
+                **pde_solve_kwargs,
+                )
+            ys.append(y_i)
+            i = i_next
+        y = torch.cat(ys,0)
         y = y.reshape(ogshape+y.shape[-2:])
         return y
     def __call__(self, level, samples=None, pde_solve_kwargs={}):
         import torch
-        assert torch.get_default_dtype()==torch.float64
         if samples is None:
             samples = torch.rand(self.d).to(self.device)
         npv = isinstance(samples,np.ndarray)
@@ -224,6 +242,29 @@ class DarcyFlow2d(object):
         u,f = self.transform(level,samples)
         y = self.evaluate_from_u_f(level,u,f,pde_solve_kwargs)
         qoi = y.amax((-2,-1))
+        if npv:
+            qoi = qoi.cpu().numpy()
+        return qoi
+    def ml(self, level, samples=None, pde_solve_kwargs={}):
+        import torch
+        if samples is None:
+            samples = torch.rand(self.d).to(self.device)
+        npv = isinstance(samples,np.ndarray)
+        if npv: 
+            samples = torch.from_numpy(samples).to(self.device)
+        u_full,f_full = self.transform_full(samples)
+        u_fine = self.thin(level,u_full)
+        f_fine = self.thin(level,f_full)
+        y_fine = self.evaluate_from_u_f(level,u_fine,f_fine,pde_solve_kwargs)
+        qoi_fine = y_fine.amax((-2,-1))
+        if level>0:
+            u_coarse = self.thin(level-1,u_full)
+            f_coarse = self.thin(level-1,f_full)
+            y_coarse = self.evaluate_from_u_f(level-1,u_coarse,f_coarse,pde_solve_kwargs)
+            qoi_coarse = y_coarse.amax((-2,-1))
+            qoi = qoi_fine-qoi_coarse
+        else:
+            qoi = qoi_fine
         if npv:
             qoi = qoi.cpu().numpy()
         return qoi
@@ -281,7 +322,7 @@ if __name__=="__main__":
     df.plot_contour_grid([[ys[l][i] for l in range(df.levels)] for i in range(nplt)],figpath="darcy_y.png")
     """ MLQMC TESTING """ 
     qhat_prev = 0
-    x = qp.DigitalNetB2(df.d,seed=7)(2**10)
+    x = qp.DigitalNetB2(df.d,seed=7)(2**11)
     print("MLQMC Test with x.shape = %s"%str(x.shape))
     for l in range(df.levels):
         q = df(level=l,samples=x)
