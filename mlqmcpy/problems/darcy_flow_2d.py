@@ -1,7 +1,7 @@
 import numpy as np 
 import qmcpy as qp 
 
-class DarcyFlow(object):
+class DarcyFlow2d(object):
     def __init__(self, 
             levels = 3,
             n_coarsest = 4,
@@ -20,7 +20,7 @@ class DarcyFlow(object):
         import torch
         assert torch.get_default_dtype()==torch.float64
         self.device = device
-        rng_f = torch.Generator().manual_seed(f_seed)
+        rng_f = torch.Generator(device=self.device).manual_seed(f_seed)
         self.levels = levels 
         self.nonlinearity_factor = nonlinearity_factor
         assert n_coarsest>0 and np.log2(n_coarsest)%1==0
@@ -37,7 +37,7 @@ class DarcyFlow(object):
         evals_f,evecs_f = torch.linalg.eigh(kmat_f)
         factor_f = evecs_f*torch.sqrt(evals_f)
         assert torch.allclose(factor_f@factor_f.T,kmat_f,atol=1e-4)
-        f = (factor_f@torch.randn(self._d,generator=rng_f)).reshape((self.ns[-1]-1,self.ns[-1]-1))
+        f = (factor_f@torch.randn(self._d,generator=rng_f,device=self.device)).reshape((self.ns[-1]-1,self.ns[-1]-1))
         u_kernel = u_kernel(d=2,lengthscales=u_kernel_lengthscales,scale=u_kernel_scale,torchify=True,device=self.device)
         kmat_u = torch.vstack([
             torch.hstack([u_kernel(xticks[:,None,:],xticks[None,:,:],beta0=[0,0],beta1=[0,0]),u_kernel(xticks[:,None,:],xticks[None,:,:],beta0=[0,0],beta1=[1,0]),u_kernel(xticks[:,None,:],xticks[None,:,:],beta0=[0,0],beta1=[0,1])]),
@@ -72,7 +72,7 @@ class DarcyFlow(object):
         import torch
         assert torch.get_default_dtype()==torch.float64
         if isinstance(shape,int): shape=[shape]
-        unifs = torch.rand(list(shape)+[self.d])
+        unifs = torch.rand(list(shape)+[self.d],device=self.device)
         u_thin = self.transform_u(level,unifs)
         return u_thin.detach().cpu().numpy()
     def pde_solve(
@@ -188,7 +188,7 @@ class DarcyFlow(object):
             samples = torch.rand(self.d).to(self.device)
         npv = isinstance(samples,np.ndarray)
         if npv: 
-            samples = torch.from_numpy(samples)
+            samples = torch.from_numpy(samples).to(self.device)
         ogshape = samples.shape[:-1]
         u = self.transform_u(level,samples)
         u = u.reshape([-1]+list(u.shape[-3:]))
@@ -221,10 +221,11 @@ class DarcyFlow(object):
         nlist =(self.ns-1).tolist()
         for i in range(nrows):
             for j in range(ncols):
-                this_n = x[i][j].shape[-1]
+                xij = x[i][j] if isinstance(x[i][j],np.ndarray) else x[i][j].cpu().numpy()
+                this_n = xij.shape[-1]
                 assert this_n in nlist, "invalid x[%d][%d].shape[-1]=%d, must be in %s"%(i,j,this_n,str(nlist))
                 l = nlist.index(this_n)
-                ax[i,j].contourf(self.x1meshes[l],self.x2meshes[l],x[i][j],cmap="gnuplot2",levels=contour_levels)
+                ax[i,j].contourf(self.x1meshes[l].cpu().numpy(),self.x2meshes[l].cpu().numpy(),xij,cmap="gnuplot2",levels=contour_levels)
         if figpath is not None:
             fig.savefig(figpath,bbox_inches="tight")
         return fig,ax
@@ -232,7 +233,7 @@ class DarcyFlow(object):
 if __name__=="__main__":
     import torch 
     torch.set_default_dtype(torch.float64)
-    df = DarcyFlow()
+    df = DarcyFlow(device="cuda")
     n = 5
     x = np.random.rand(n,df.d)
     df.plot_contour_grid([df.fs],figpath="darcy_f.png")
@@ -240,7 +241,7 @@ if __name__=="__main__":
         u_l = df.draw_u(l,shape=n)
         print("u_l.shape = %s"%str(tuple(u_l.shape)))
         df.plot_contour_grid(u_l,figpath="darcy_u_l%d.png"%l)
-        y_l = df.__call__(level=l,samples=x)
+        y_l = df.evaluate(level=l,samples=x)
         print("y_l.shape = %s"%str(tuple(y_l.shape)))
         df.plot_contour_grid([y_l],figpath="darcy_y_l%d.png"%l)
         print()
