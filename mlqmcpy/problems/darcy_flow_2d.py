@@ -52,8 +52,10 @@ class DarcyFlow2d(object):
         self.x1meshes = [self.thin(l,x1mesh) for l in range(self.levels)]
         self.x2meshes = [self.thin(l,x2mesh) for l in range(self.levels)]
         self.lrs = [.9,.75]+[1]*max(0,self.levels-2)
-        self.num_newton_iters = [100,75]+[5]*max(0,self.levels-2)
-        self.relaxations = [0,1e-5]+[0]*max(0,self.levels-2)
+        self.num_newton_iters = np.array([100,75]+[5]*max(0,self.levels-2))[:self.levels]
+        self.relaxations = np.array([0,1e-5]+[0]*max(0,self.levels-2))[:self.levels]
+        self.raw_costs = self.num_newton_iters*self.p2s**3
+        self.adjusted_costs = self.raw_costs/self.raw_costs[-1]
     def thin(self, level, x):
         import torch
         assert torch.get_default_dtype()==torch.float64
@@ -253,6 +255,8 @@ if __name__=="__main__":
     import torch 
     torch.set_default_dtype(torch.float64)
     df = DarcyFlow2d(device="cuda")
+    print(df.raw_costs)
+    print(df.adjusted_costs)
     """ SOLVER TESTING """ 
     n = 1000
     nplt = 5
