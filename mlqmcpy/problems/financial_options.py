@@ -30,18 +30,32 @@ class MLFinancialOption(object):
     np.float64(-0.003615806583026515)
     >>> mlopts.exact.Q.mean(np.inf)
     np.float64(3.9344057385143216)
+
+    >>> for opt in ["ASIAN","BARRIER","LOOKBACK"]:
+    ...     print(opt)
+    ...     mlopts = MLFinancialOption(qmcpy_financial_option_args=opt)
+    ...     qhat_prev = 0
+    ...     for l in range(mlopts.levels):
+    ...         x = qp.DigitalNetB2(mlopts.ds[l],seed=7)(2**11)
+    ...         q = mlopts(level=l,samples=x)
+    ...         qhat_l = q.mean()
+    ...         yhat_l = qhat_l-qhat_prev
+    ...         print("    Qhat[l] = %-10.3f Yhat[l] = %.2e"%(qhat_l,yhat_l))
+    ...         qhat_prev = qhat_l
+
+
     """
     
     def __init__(
             self,
             levels = 8,
-            qmcpy_financial_option_args = "Asian",
+            qmcpy_financial_option_args = "ASIAN",
             d_coarsest = 8,
             ):
         if isinstance(qmcpy_financial_option_args,str):
             with open(os.path.dirname(os.path.realpath(__file__))+"/financial_options_settings.json","r") as file:
                 kwargs = json.load(file)
-            qmcpy_financial_option_args = kwargs[qmcpy_financial_option_args]
+            qmcpy_financial_option_args = kwargs[qmcpy_financial_option_args.upper()]
         option_l0 = qp.FinancialOption(
             qp.IIDStdUniform(d_coarsest),
             level = 0, 

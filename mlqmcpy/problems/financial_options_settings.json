@@ -1,5 +1,5 @@
 {
-    "Asian": {
+    "ASIAN": {
         "option": "ASIAN",
         "call_put": "CALL",
         "asian_mean": "GEOMETRIC",
@@ -8,9 +8,26 @@
         "start_price": 39,
         "strike_price": 40,
         "interest_rate": 0.05,
+        "t_final": 1
+    },
+    "BARRIER": {
+        "option": "BARRIER",
+        "call_put": "CALL",
+        "volatility": 0.5,
+        "start_price": 39,
+        "strike_price": 40,
+        "interest_rate": 0.05,
         "t_final": 1,
         "barrier_in_out": "IN", 
-        "barrier_price": 38,
-        "digital_payout": 10
+        "barrier_price": 170
+    },
+    "LOOKBACK": {
+        "option": "LOOKBACK",
+        "call_put": "CALL",
+        "volatility": 0.5,
+        "start_price": 39,
+        "strike_price": 40,
+        "interest_rate": 0.05,
+        "t_final": 1
     }
 }
