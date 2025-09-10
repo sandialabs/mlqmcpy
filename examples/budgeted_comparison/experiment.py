@@ -211,6 +211,7 @@ if __name__=="__main__":
         num_levels = 2
         m_min = 2
         m_max = 13
+        n_ref_approx = 2**19
     elif False:
         problem_name = "Elliptic PDE"
         problem = elliptic
@@ -218,6 +219,7 @@ if __name__=="__main__":
         num_levels = 4
         m_min = 2
         m_max = 14
+        n_ref_approx = 2**19
     elif False:
         problem_name = "Asian Option KL"
         problem = asian_option
@@ -225,6 +227,7 @@ if __name__=="__main__":
         num_levels = 8
         m_min = 3
         m_max = 10
+        n_ref_approx = 2**19
     elif False:
         problem_name = "Steady State Diffusion PDE"
         problem = steady_state_diffusion_1d
@@ -233,23 +236,24 @@ if __name__=="__main__":
         m_min = 2
         m_max = 9
         problem_dim_levels_ms = (steady_state_diffusion_1d,9,5,2,9)
-    elif True:
+        n_ref_approx = 2**18
+    elif False:
         problem_name = "Asian Option"
         problem = MLFinancialOption(qmcpy_financial_option_args="ASIAN")
         dimension = problem.ds
         num_levels = problem.levels
         m_min = 4
         m_max = 10
-    elif False:
+    elif True:
         problem_name = "Lookback Option"
         problem = MLFinancialOption(qmcpy_financial_option_args="LOOKBACK")
         dimension = problem.ds
         num_levels = problem.levels
         m_min = 4
         m_max = 10
+        n_ref_approx = 2**19
     else:
         raise Exception("please set one of the problem cases to true")
-
     print()
     dataroot = os.path.dirname(os.path.abspath(__file__))+"/budgeted_comparison_data/comp.%s.%s/"%(problem_name,tag)
     # directory setup
@@ -262,7 +266,8 @@ if __name__=="__main__":
     if hasattr(problem,"exact") and hasattr(problem.exact,"Q") and hasattr(problem.exact.Q,"mean"):
         true_solution = problem.exact.Q.mean(level=num_levels-1)
     else:
-        true_solution = problem(num_levels-1,qp.DigitalNetB2(dimension)(2**19)).mean()
+        d = dimension if isinstance(dimension,int) else dimension[-1]
+        true_solution = problem(num_levels-1,qp.DigitalNetB2(d)(n_ref_approx)).mean()
     assert parallel>0
     bs = int(np.ceil(trials/parallel))
     trial_blocks = [(i*bs,min(trials,(i+1)*bs)) for i in range(parallel)]
