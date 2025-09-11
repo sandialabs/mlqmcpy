@@ -12,7 +12,11 @@ from mlqmcpy.problems import (
     RidgeFinance,
     RidgeKink,
     RidgeSmooth,
+    RidgeJSU,
+    RidgePL,
     Genz,
+    SumUeU,
+    MC2,
 )
 
 import numpy as np
@@ -24,10 +28,12 @@ import shutil
 import gc
 import sys
 import multiprocessing
+import argparse
 
-def main(problem_name, dataroot, trial_start, trial_end, true_solution, ref_approx_seed, device):
+def main(problem_name, dimension, dataroot, trial_start, trial_end, true_solution, ref_approx_seed, device):
     if problem_name == "Analytic":
         problem = analytic
+        assert dimension is None 
         dimension = 2
         num_levels = 4
         m_min = 2
@@ -36,6 +42,7 @@ def main(problem_name, dataroot, trial_start, trial_end, true_solution, ref_appr
         initial_cost_prop_max_budget = 1/4
     elif problem_name == "Borehole":
         problem = borehole
+        assert dimension is None 
         dimension = 8
         num_levels = 2
         m_min = 2
@@ -44,6 +51,7 @@ def main(problem_name, dataroot, trial_start, trial_end, true_solution, ref_appr
         initial_cost_prop_max_budget = 1/4
     elif problem_name == "Elliptic PDE":
         problem = elliptic
+        assert dimension is None 
         dimension = 8
         num_levels = 4
         m_min = 2
@@ -52,6 +60,7 @@ def main(problem_name, dataroot, trial_start, trial_end, true_solution, ref_appr
         initial_cost_prop_max_budget = 1/4
     elif problem_name == "Asian Option KL":
         problem = asian_option
+        assert dimension is None 
         dimension = 16
         num_levels = 8
         m_min = 3
@@ -60,6 +69,7 @@ def main(problem_name, dataroot, trial_start, trial_end, true_solution, ref_appr
         initial_cost_prop_max_budget = 1/4
     elif problem_name == "Steady State Diffusion PDE":
         problem = steady_state_diffusion_1d
+        assert dimension is None 
         dimension = 9
         num_levels = 5
         m_min = 2
@@ -68,6 +78,7 @@ def main(problem_name, dataroot, trial_start, trial_end, true_solution, ref_appr
         initial_cost_prop_max_budget = 1/4
     elif problem_name == "Asian Option":
         problem = MLFinancialOption(qmcpy_financial_option_args="ASIAN")
+        assert dimension is None 
         dimension = problem.ds
         num_levels = problem.levels
         m_min = 4
@@ -76,6 +87,7 @@ def main(problem_name, dataroot, trial_start, trial_end, true_solution, ref_appr
         initial_cost_prop_max_budget = 1/4
     elif problem_name == "Lookback Option":
         problem = MLFinancialOption(qmcpy_financial_option_args="LOOKBACK")
+        assert dimension is None 
         dimension = problem.ds
         num_levels = problem.levels
         m_min = 4
@@ -85,6 +97,7 @@ def main(problem_name, dataroot, trial_start, trial_end, true_solution, ref_appr
     elif problem_name == "Darcy Flow PDE 2D":
         assert device is not None, "Darcy Flow requires running on GPU"
         problem = DarcyFlow2d(device=device)
+        assert dimension is None 
         dimension = problem.d
         num_levels = problem.levels
         m_min = 3
@@ -92,24 +105,56 @@ def main(problem_name, dataroot, trial_start, trial_end, true_solution, ref_appr
         cost_per_level = problem.adjusted_costs
         initial_cost_prop_max_budget = 1/4
     elif "Ridge" in problem_name:
-        if problem_name == "Ridge Jump":
-            problem = RidgeJump()
-        elif problem_name == "Ridge Kink":
-            problem = RidgeKink()
-        elif problem_name == "Ridge Smooth":
-            problem = RidgeSmooth()
-        elif problem_name == "Ridge Finance":
-            problem = RidgeFinance()
+        if problem_name == "Ridge Jump Equal Weights":
+            problem = RidgeJump(weights="EQUAL")
+        elif problem_name == "Ridge Kink Equal Weights":
+            problem = RidgeKink(weights="EQUAL")
+        elif problem_name == "Ridge Smooth Equal Weights":
+            problem = RidgeSmooth(weights="EQUAL")
+        elif problem_name == "Ridge Finance Equal Weights":
+            problem = RidgeFinance(weights="EQUAL")
+        elif problem_name == "Ridge JSU Equal Weights":
+            problem = RidgeJSU(weights="EQUAL")
+        elif problem_name == "Ridge PL Equal Weights":
+            problem = RidgePL(weights="EQUAL")
+        elif problem_name == "Ridge Jump Sparse Weights":
+            problem = RidgeJump(weights="SPARSE")
+        elif problem_name == "Ridge Kink Sparse Weights":
+            problem = RidgeKink(weights="SPARSE")
+        elif problem_name == "Ridge Smooth Sparse Weights":
+            problem = RidgeSmooth(weights="SPARSE")
+        elif problem_name == "Ridge Finance Sparse Weights":
+            problem = RidgeFinance(weights="SPARSE")
+        elif problem_name == "Ridge JSU Sparse Weights":
+            problem = RidgeJSU(weights="SPARSE")
+        elif problem_name == "Ridge PL Sparse Weights":
+            problem = RidgePL(weights="SPARSE")
         else:
             raise Exception("invalid ridge function %s"%problem_name)
-        dimension = 32
+        assert isinstance(dimension,int)
+        num_levels = 1
+        m_min = 4
+        m_max = 13
+        cost_per_level = np.ones(1)
+        initial_cost_prop_max_budget = 1
+    elif problem_name=="SumUeU":
+        problem = SumUeU()
+        assert isinstance(dimension,int)
+        num_levels = 1
+        m_min = 4
+        m_max = 13
+        cost_per_level = np.ones(1)
+        initial_cost_prop_max_budget = 1
+    elif problem_name=="MC2":
+        problem = MC2()
+        assert isinstance(dimension,int)
         num_levels = 1
         m_min = 4
         m_max = 13
         cost_per_level = np.ones(1)
         initial_cost_prop_max_budget = 1
     elif "Genz" in problem_name:
-        dimension = 32
+        assert isinstance(dimension,int)
         if problem_name == "Genz Oscillatory 1":
             problem = Genz(dimension,kind_func="OSCILLATORY",kind_coeff=1)
         elif problem_name == "Genz Oscillatory 2":
@@ -135,6 +180,7 @@ def main(problem_name, dataroot, trial_start, trial_end, true_solution, ref_appr
         if hasattr(problem,"exact") and hasattr(problem.exact,"Q") and hasattr(problem.exact.Q,"mean"):
             ymean = problem.exact.Q.mean(level=num_levels-1)
         else:
+            assert False
             d = dimension if isinstance(dimension,int) else dimension[-1]
             dnb2 = qp.DigitalNetB2(d,order="GRAY",seed=ref_approx_seed)
             x = dnb2(n_min=trial_start,n_max=trial_end)
@@ -147,7 +193,7 @@ def main(problem_name, dataroot, trial_start, trial_end, true_solution, ref_appr
     assert trial_end>trial_start
     trials = trial_end-trial_start
     fname = dataroot+"log.%d.%d.log"%(trial_start,trial_end)
-    print("%s"%fname)
+    print("\t%s"%fname)
     file = open(fname,"w")
     # parameters 
     initial_sampling_alloc = "PROP" # ["PROP","EQUAL"]
@@ -329,53 +375,92 @@ def main(problem_name, dataroot, trial_start, trial_end, true_solution, ref_appr
 
 if __name__=="__main__":
     torch.set_default_dtype(torch.float64)
-    force_experiment = True
-    folder = "Genz_SL/d32/"
-    tag = "NEW"
-    trials = 100
-    parallel = 10
-    # devices = ["cuda:3","cuda:4"]
-    devices = "cpu"
-    ref_approx_seed = 7
-    problem_name,n_ref_approx = (
-        # "Analytic",None
-        # "Borehole",2**19
-        # "Elliptic PDE",2**19
-        # "Asian Option KL",2**19
-        # "Steady State Diffusion PDE",2**18
-        # "Asian Option",None
-        # "Lookback Option",2**19
-        # "Darcy Flow PDE 2D",2**15
-        # "Ridge Jump", 2**20
-        # "Ridge Kink", 2**20
-        # "Ridge Smooth", 2**20
-        # "Ridge Finance", 2**20
-        # "Genz Oscillatory 1", 2**20
-        # "Genz Oscillatory 2", 2**20
-        # "Genz Oscillatory 3", 2**20
-        # "Genz Corner-Peak 1", 2**20
-        # "Genz Corner-Peak 2", 2**20
-        "Genz Corner-Peak 3", 2**20
+    parser = argparse.ArgumentParser(description="Budgeted Comparison Experiment")
+    parser.add_argument(
+        "-p",
+        "--problem",
+        type = str,
+        default = "Analytic",
+        help = "problem name"
     )
-    print()
-    if isinstance(devices,str): devices = [devices]*parallel
-    assert len(devices)>=parallel
+    parser.add_argument(
+        "-d",
+        "--dimension",
+        type = int,
+        default = None,
+        help = "problem dimension if applicable"
+    )
+    parser.add_argument(
+        "-f",
+        "--force",
+        action='store_true',
+        help = "Flag to force experiment to overwrite existing folder"
+    )
+    parser.add_argument(
+        "--outdir",
+        type = str,
+        default = "",
+        help = "output directory"
+    )
+    parser.add_argument(
+        "--tag",
+        type = str,
+        default = "",
+        help = "tag"
+    )
+    parser.add_argument(
+        "-t",
+        "--trials",
+        type = int,
+        default = 100,
+        help = "trials"
+    )
+    parser.add_argument(
+        "--parallel",
+        type = int,
+        default = 1,
+        help = "parallel processes, 1 means serial execution"
+    )
+    parser.add_argument(
+        "--devices",
+        nargs = "+",
+        type = int,
+        default = -1,
+        help = "devices with (-1) the CPU and a non-negative int the Cuda GPU index"
+    )
+    parser.add_argument(
+        "--nrefapprox",
+        type = int,
+        default = 2**19,
+        help = "seed for the reference approximation if required"
+    )
+    parser.add_argument(
+        "--refapproxseed",
+        type = int,
+        default = 7,
+        help = "seed for the reference approximation if required"
+    )
+    args = parser.parse_args()
+    assert args.parallel>0
+    if isinstance(args.devices,int):
+        args.devices = [args.devices]*args.parallel
+    devices = [("cpu" if args.devices[i]==-1 else "cuda:%d") for i in range(args.parallel)]
+    assert len(devices)>=args.parallel
     # directory setup
-    dataroot = os.path.dirname(os.path.abspath(__file__))+"/budgeted_comparison_data/"+folder+"comp.%s.%s/"%(problem_name,tag)
-    if os.path.exists(dataroot) and (not force_experiment):
-        print("experiment %s exists, ending program"%dataroot)
+    dataroot = os.path.dirname(os.path.abspath(__file__))+"/budgeted_comparison_data/"+args.outdir+"comp.%s%s/"%(args.problem.replace(" ","_"),args.tag)
+    if os.path.exists(dataroot) and (not args.force):
+        print("\n\nexperiment %s exists, ending program\n\n"%dataroot)
         sys.exit(0)
     if os.path.exists(dataroot):
         shutil.rmtree(dataroot)
     os.makedirs(dataroot)
-    assert parallel>0
     # approximate true solution 
-    if parallel==1:
-        main(problem_name, dataroot, 0, n_ref_approx, None, ref_approx_seed, devices[0])
+    if args.parallel==1:
+        main(args.problem,args.dimension,dataroot,0,args.nrefapprox,None,args.refapproxseed,devices[0])
     else:
-        bs = int(np.ceil(n_ref_approx/parallel))
-        n_blocks = [(i*bs,min(n_ref_approx,(i+1)*bs)) for i in range(parallel)]
-        processes = [torch.multiprocessing.Process(target=main,args=(problem_name,dataroot,n_min,n_max,None,ref_approx_seed, devices[i])) for i,(n_min,n_max) in enumerate(n_blocks)]
+        bs = int(np.ceil(args.nrefapprox/args.parallel))
+        n_blocks = [(i*bs,min(args.nrefapprox,(i+1)*bs)) for i in range(args.parallel)]
+        processes = [torch.multiprocessing.Process(target=main,args=(args.problem,args.dimension,dataroot,n_min,n_max,None,args.refapproxseed,devices[i])) for i,(n_min,n_max) in enumerate(n_blocks)]
         for p in processes: p.start()
         for p in processes: p.join()
     true_solution = 0
@@ -386,14 +471,14 @@ if __name__=="__main__":
         data = np.load(dataroot+"ymean.%d.%d.npy"%(n_min,n_max),allow_pickle=True)[()]
         ymean = data["ymean"]
         true_solution += ymean*(n_max-n_min)
-    true_solution = true_solution/n_ref_approx
+    true_solution = true_solution/args.nrefapprox
     # run ML(Q)MC simulations
-    if parallel==1:
-        main(problem_name, dataroot, 0, trials, true_solution, None, devices[0])
+    if args.parallel==1:
+        main(args.problem,args.dimension,dataroot,0,args.trials,true_solution,None,devices[0])
     else:
-        bs = int(np.ceil(trials/parallel))
-        trial_blocks = [(i*bs,min(trials,(i+1)*bs)) for i in range(parallel)]
-        processes = [torch.multiprocessing.Process(target=main,args=(problem_name,dataroot,trial_start,trial_end,true_solution,None,devices[i])) for i,(trial_start,trial_end) in enumerate(trial_blocks)]
+        bs = int(np.ceil(args.trials/args.parallel))
+        trial_blocks = [(i*bs,min(args.trials,(i+1)*bs)) for i in range(args.parallel)]
+        processes = [torch.multiprocessing.Process(target=main,args=(args.problem,args.dimension,dataroot,trial_start,trial_end,true_solution,None,devices[i])) for i,(trial_start,trial_end) in enumerate(trial_blocks)]
         for p in processes: p.start()
         for p in processes: p.join()
     print()
