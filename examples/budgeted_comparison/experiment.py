@@ -351,11 +351,11 @@ if __name__=="__main__":
         # "Ridge Smooth", 2**20
         # "Ridge Finance", 2**20
         # "Genz Oscillatory 1", 2**20
-        "Genz Oscillatory 2", 2**20
+        # "Genz Oscillatory 2", 2**20
         # "Genz Oscillatory 3", 2**20
         # "Genz Corner-Peak 1", 2**20
         # "Genz Corner-Peak 2", 2**20
-        # "Genz Corner-Peak 3", 2**20
+        "Genz Corner-Peak 3", 2**20
     )
     print()
     if isinstance(devices,str): devices = [devices]*parallel
