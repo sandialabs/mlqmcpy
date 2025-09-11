@@ -29,11 +29,11 @@ class Abstract0MeanSLTF(object):
         assert level==0, "function is single level"
         return self.__call__(level=level,samples=samples)
 
-class SumUeU(Abstract0MeanSLTF):
+class Sumxex(Abstract0MeanSLTF):
     """
     >>> d = 10 
     >>> rng = np.random.Generator(np.random.PCG64(7))
-    >>> f = SumUeU()
+    >>> f = Sumxex()
     >>> f(level=0,samples=rng.uniform(low=0,high=1,size=(5,2)))
     array([ 1.36859343, -0.03305734,  0.49776613, -0.12781599,  0.51586839])
     >>> f(level=0,samples=rng.uniform(low=0,high=1,size=(2**20,2))).mean()
@@ -58,6 +58,7 @@ class MC2(Abstract0MeanSLTF):
 class AbstractRidgeFunc(Abstract0MeanSLTF):
     def __init__(self, weights):
         self.weights = weights.upper()
+        super().__init__()
     def f(self, x, d):
         if self.weights=="EQUAL":
             theta = d**(-1/2)
