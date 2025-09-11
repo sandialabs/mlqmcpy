@@ -3,7 +3,6 @@ import numpy as np
 from .utils import multilevel
 import scipy.stats 
 
-
 class AbstractRidgeFunc(object):
     def v(self, x):
         return scipy.stats.norm.ppf(x).sum(-1)/np.sqrt(x.shape[-1])

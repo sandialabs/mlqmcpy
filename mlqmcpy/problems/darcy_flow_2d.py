@@ -241,6 +241,8 @@ class DarcyFlow2d(object):
             samples = torch.from_numpy(samples).to(self.device)
         u,f = self.transform(level,samples)
         y = self.evaluate_from_u_f(level,u,f,pde_solve_kwargs)
+        # h = self.ps[level]//2
+        # qoi = y[...,h,h]**2
         qoi = y.amax((-2,-1))
         if npv:
             qoi = qoi.cpu().numpy()
@@ -252,15 +254,18 @@ class DarcyFlow2d(object):
         npv = isinstance(samples,np.ndarray)
         if npv: 
             samples = torch.from_numpy(samples).to(self.device)
+        # h = self.ps[level]//2
         u_full,f_full = self.transform_full(samples)
         u_fine = self.thin(level,u_full)
         f_fine = self.thin(level,f_full)
         y_fine = self.evaluate_from_u_f(level,u_fine,f_fine,pde_solve_kwargs)
+        # qoi_fine = y_fine[...,h,h]**2
         qoi_fine = y_fine.amax((-2,-1))
         if level>0:
             u_coarse = self.thin(level-1,u_full)
             f_coarse = self.thin(level-1,f_full)
             y_coarse = self.evaluate_from_u_f(level-1,u_coarse,f_coarse,pde_solve_kwargs)
+            # qoi_coarse = y_coarse[...,h,h]**2
             qoi_coarse = y_coarse.amax((-2,-1))
             qoi = qoi_fine-qoi_coarse
         else:
@@ -299,27 +304,27 @@ if __name__=="__main__":
     print(df.raw_costs)
     print(df.adjusted_costs)
     """ SOLVER TESTING """ 
-    n = 1000
-    nplt = 5
-    x = np.random.rand(n,df.d)
-    us = [[None]*df.levels for i in range(n)]
-    ys = [[None]*df.levels for i in range(n)]
-    u,f = df.draw_u_f(level=-1,shape=n)
-    us = [df.thin(l,u) for l in range(df.levels)]
-    fs = [df.thin(l,f) for l in range(df.levels)]
-    ys = [None]*df.levels
-    for l in range(df.levels):
-        u_l = us[l]
-        print("u_l.shape = %s"%str(tuple(u_l.shape)))
-        f_l = fs[l]
-        print("f_l.shape = %s"%str(tuple(f_l.shape)))
-        y_l = df.evaluate_from_u_f(level=l,u=u_l,f=f_l,pde_solve_kwargs={"verbose":True})
-        print("y_l.shape = %s"%str(tuple(y_l.shape)))
-        ys[l] = y_l
-        print()
-    df.plot_contour_grid([[fs[l][i] for l in range(df.levels)] for i in range(nplt)],figpath="darcy_f.png")
-    df.plot_contour_grid([[us[l][i][0] for l in range(df.levels)] for i in range(nplt)],figpath="darcy_u.png")
-    df.plot_contour_grid([[ys[l][i] for l in range(df.levels)] for i in range(nplt)],figpath="darcy_y.png")
+    # n = 1000
+    # nplt = 5
+    # x = np.random.rand(n,df.d)
+    # us = [[None]*df.levels for i in range(n)]
+    # ys = [[None]*df.levels for i in range(n)]
+    # u,f = df.draw_u_f(level=-1,shape=n)
+    # us = [df.thin(l,u) for l in range(df.levels)]
+    # fs = [df.thin(l,f) for l in range(df.levels)]
+    # ys = [None]*df.levels
+    # for l in range(df.levels):
+    #     u_l = us[l]
+    #     print("u_l.shape = %s"%str(tuple(u_l.shape)))
+    #     f_l = fs[l]
+    #     print("f_l.shape = %s"%str(tuple(f_l.shape)))
+    #     y_l = df.evaluate_from_u_f(level=l,u=u_l,f=f_l,pde_solve_kwargs={"verbose":True})
+    #     print("y_l.shape = %s"%str(tuple(y_l.shape)))
+    #     ys[l] = y_l
+    #     print()
+    # df.plot_contour_grid([[fs[l][i] for l in range(df.levels)] for i in range(nplt)],figpath="darcy_f.png")
+    # df.plot_contour_grid([[us[l][i][0] for l in range(df.levels)] for i in range(nplt)],figpath="darcy_u.png")
+    # df.plot_contour_grid([[ys[l][i] for l in range(df.levels)] for i in range(nplt)],figpath="darcy_y.png")
     """ MLQMC TESTING """ 
     qhat_prev = 0
     x = qp.DigitalNetB2(df.d,seed=7)(2**11)

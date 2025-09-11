@@ -12,6 +12,7 @@ from mlqmcpy.problems import (
     RidgeFinance,
     RidgeKink,
     RidgeSmooth,
+    Genz,
 )
 
 import numpy as np
@@ -100,8 +101,29 @@ def main(problem_name, dataroot, trial_start, trial_end, true_solution, ref_appr
         elif problem_name == "Ridge Finance":
             problem = RidgeFinance()
         else:
-            raise Exception("invalid ridge problem %s"%problem_name)
-        dimension = 2
+            raise Exception("invalid ridge function %s"%problem_name)
+        dimension = 32
+        num_levels = 1
+        m_min = 4
+        m_max = 13
+        cost_per_level = np.ones(1)
+        initial_cost_prop_max_budget = 1
+    elif "Genz" in problem_name:
+        dimension = 32
+        if problem_name == "Genz Oscillatory 1":
+            problem = Genz(dimension,kind_func="OSCILLATORY",kind_coeff=1)
+        elif problem_name == "Genz Oscillatory 2":
+            problem = Genz(dimension,kind_func="OSCILLATORY",kind_coeff=2)
+        elif problem_name == "Genz Oscillatory 3":
+            problem = Genz(dimension,kind_func="OSCILLATORY",kind_coeff=3)
+        elif problem_name == "Genz Corner-Peak 1":
+            problem = Genz(dimension,kind_func="CORNER-PEAK",kind_coeff=1)
+        elif problem_name == "Genz Corner-Peak 2":
+            problem = Genz(dimension,kind_func="CORNER-PEAK",kind_coeff=2)
+        elif problem_name == "Genz Corner-Peak 3":
+            problem = Genz(dimension,kind_func="CORNER-PEAK",kind_coeff=3)
+        else:
+            raise Exception("invalid Genz function %s"%problem_name)
         num_levels = 1
         m_min = 4
         m_max = 13
@@ -308,7 +330,7 @@ def main(problem_name, dataroot, trial_start, trial_end, true_solution, ref_appr
 if __name__=="__main__":
     torch.set_default_dtype(torch.float64)
     force_experiment = True
-    folder = "ridge_SL/d2/"
+    folder = "Genz_SL/d32/"
     tag = "NEW"
     trials = 100
     parallel = 10
@@ -324,10 +346,16 @@ if __name__=="__main__":
         # "Asian Option",None
         # "Lookback Option",2**19
         # "Darcy Flow PDE 2D",2**15
-        "Ridge Jump", 2**20
+        # "Ridge Jump", 2**20
         # "Ridge Kink", 2**20
         # "Ridge Smooth", 2**20
         # "Ridge Finance", 2**20
+        # "Genz Oscillatory 1", 2**20
+        "Genz Oscillatory 2", 2**20
+        # "Genz Oscillatory 3", 2**20
+        # "Genz Corner-Peak 1", 2**20
+        # "Genz Corner-Peak 2", 2**20
+        # "Genz Corner-Peak 3", 2**20
     )
     print()
     if isinstance(devices,str): devices = [devices]*parallel
