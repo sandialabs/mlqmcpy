@@ -143,5 +143,5 @@ optionpricing: asianopt lookbackopt
 elliptic: 
 	python examples/budgeted_comparison/experiment.py --outdir ML/ --parallel 10 -p "Elliptic PDE"
 
-
+ml: optionpricing elliptic
 
