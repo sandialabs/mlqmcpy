@@ -145,3 +145,6 @@ elliptic:
 
 ml: optionpricing elliptic
 
+darcy:
+	python examples/budgeted_comparison/experiment.py --outdir ML/ --parallel 5 -p "Nonlinear Darcy PDE" --devices 1 2 3 4 5 --trials 100 
+

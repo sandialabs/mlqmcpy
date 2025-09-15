@@ -94,7 +94,7 @@ def main(problem_name, dimension, dataroot, trial_start, trial_end, true_solutio
         m_max = 11
         cost_per_level = 2.**(np.arange(num_levels)-num_levels+1)
         initial_cost_prop_max_budget = 1/4
-    elif problem_name == "Darcy Flow PDE 2D":
+    elif problem_name == "Nonlinear Darcy PDE":
         assert device is not None, "Darcy Flow requires running on GPU"
         problem = DarcyFlow2d(device=device)
         assert dimension is None 
@@ -439,7 +439,7 @@ if __name__=="__main__":
     assert args.parallel>0
     if isinstance(args.devices,int):
         args.devices = [args.devices]*args.parallel
-    devices = [("cpu" if args.devices[i]==-1 else "cuda:%d") for i in range(args.parallel)]
+    devices = [("cpu" if args.devices[i]==-1 else "cuda:%d"%args.devices[i]) for i in range(args.parallel)]
     assert len(devices)>=args.parallel
     # directory setup
     dataroot = os.path.dirname(os.path.abspath(__file__))+"/budgeted_comparison_data/"+args.outdir+"%s%s/"%(args.problem.replace(" ","_"),args.tag)

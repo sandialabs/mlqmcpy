@@ -1,21 +1,60 @@
 import numpy as np 
 import qmcpy as qp 
+import types 
 
 class DarcyFlow2d(object):
     def __init__(self, 
-            levels = 3,
-            n_coarsest = 8,
-            nonlinearity_factor = 1,
-            f_kernel = qp.KernelMatern12,
-            f_kernel_lengthscales = 0.1,
-            f_kernel_scale = 1.,
-            f_kmat_noise = 1e-5,
-            u_kernel = qp.KernelGaussian,
-            u_kernel_lengthscales = 0.1, 
-            u_kernel_scale = 1.,
-            u_kmat_noise = 1e-5,
+            levels = None,
+            n_coarsest = None,
+            nonlinearity_factor = None,
+            f_kernel = None,
+            f_kernel_lengthscales = None,
+            f_kernel_scale = None,
+            f_kmat_noise = None,
+            u_kernel = None,
+            u_kernel_lengthscales = None, 
+            u_kernel_scale = None,
+            u_kmat_noise = None,
             device = "cpu",
             ):
+        allnone = (
+            levels is None and 
+            n_coarsest is None and 
+            nonlinearity_factor is None and 
+            f_kernel is None and 
+            f_kernel_lengthscales is None and 
+            f_kernel_scale is None and 
+            f_kmat_noise is None and 
+            u_kernel is None and
+            u_kernel_lengthscales is None and 
+            u_kernel_scale is None and 
+            u_kmat_noise is None)
+        if allnone:
+            #self.raw_costs = np.array([4.169996827840805e-05,9.962388128042222e-05,2.740689277648926e-03])
+            self.raw_costs = np.array([4.217835143208504e-05,9.883953630924225e-05,2.766717433929443e-03])
+            self.adjusted_costs = self.raw_costs/self.raw_costs[-1]
+            self.exact = types.SimpleNamespace()
+            self.exact.Q = types.SimpleNamespace()
+            self.exact.Y = types.SimpleNamespace()
+            #self.exact_values = np.array([0.041626055544059,0.013428061097414,0.012431490423060])
+            #self.exact_diffs = np.array([4.162605554405886e-02,-2.819799444664468e-02,-9.965706743537035e-04])
+            self.exact_values = np.array([0.045731827083527,0.046956554309946,0.046893108081545])
+            self.exact_diffs = np.array([4.573182708352660e-02,1.224727226419649e-03,-6.344622840109143e-05])
+            self.exact.Q.mean = lambda level: self.exact_values[level]
+            self.exact.Y.mean = lambda level: self.exact_diffs[level]
+        levels = 3 if levels is None else levels
+        n_coarsest = 8  if n_coarsest is None else n_coarsest
+        nonlinearity_factor = 1  if nonlinearity_factor is None else nonlinearity_factor
+        f_kernel = qp.KernelMatern12  if f_kernel is None else f_kernel
+        # f_kernel_lengthscales = 0.1  if f_kernel_lengthscales is None else f_kernel_lengthscales
+        f_kernel_lengthscales = 0.5 if f_kernel_lengthscales is None else f_kernel_lengthscales
+        f_kernel_scale = 1.  if f_kernel_scale is None else f_kernel_scale
+        f_kmat_noise = 1e-5  if f_kmat_noise is None else f_kmat_noise
+        u_kernel = qp.KernelGaussian  if u_kernel is None else u_kernel
+        # u_kernel_lengthscales = 0.1  if u_kernel_lengthscales is None else u_kernel_lengthscales
+        u_kernel_lengthscales = 0.5  if u_kernel_lengthscales is None else u_kernel_lengthscales
+        u_kernel_scale = 1.  if u_kernel_scale is None else u_kernel_scale
+        u_kmat_noise = 1e-5  if u_kmat_noise is None else u_kmat_noise
         import torch
         assert torch.get_default_dtype()==torch.float64
         self.device = device
@@ -54,9 +93,7 @@ class DarcyFlow2d(object):
         self.lrs = [.75]+[1]*max(0,self.levels-1)
         self.num_newton_iters = np.array([30]+[5]*max(0,self.levels-1))[:self.levels]
         self.relaxations = np.array([1e-5]+[1e-8]*max(0,self.levels-1))[:self.levels]
-        self.raw_costs = self.num_newton_iters*self.p2s**3
-        self.adjusted_costs = self.raw_costs/self.raw_costs[-1]
-        self.block_sizes = np.array([100000,10000,1000])[:self.levels]
+        self.block_sizes = np.array([2**11,2**10,2**9])[:self.levels]
     def thin(self, level, x):
         import torch
         assert torch.get_default_dtype()==torch.float64
@@ -110,7 +147,6 @@ class DarcyFlow2d(object):
         dx = self.dx[level]
         assert f.shape==(r,n,n) and u.shape==(r,3,n,n) and v0.shape==(r,n,n)
         nrange = torch.arange(n,device=self.device)
-        n2range = torch.arange(n2,device=self.device)
         eyen2 = torch.eye(n2,device=self.device)
         # A_laplace.shape == (N,N)
         A1 = torch.zeros((n,n,n,n),device=self.device)
@@ -241,9 +277,10 @@ class DarcyFlow2d(object):
             samples = torch.from_numpy(samples).to(self.device)
         u,f = self.transform(level,samples)
         y = self.evaluate_from_u_f(level,u,f,pde_solve_kwargs)
-        # h = self.ps[level]//2
+        # h = self.ps[level]//4
         # qoi = y[...,h,h]**2
         qoi = y.amax((-2,-1))
+        # qoi = y.std((-2,-1))
         if npv:
             qoi = qoi.cpu().numpy()
         return qoi
@@ -254,19 +291,21 @@ class DarcyFlow2d(object):
         npv = isinstance(samples,np.ndarray)
         if npv: 
             samples = torch.from_numpy(samples).to(self.device)
-        # h = self.ps[level]//2
+        # h = self.ps[level]//4
         u_full,f_full = self.transform_full(samples)
         u_fine = self.thin(level,u_full)
         f_fine = self.thin(level,f_full)
         y_fine = self.evaluate_from_u_f(level,u_fine,f_fine,pde_solve_kwargs)
         # qoi_fine = y_fine[...,h,h]**2
         qoi_fine = y_fine.amax((-2,-1))
+        # qoi_fine = y_fine.std((-2,-1))
         if level>0:
             u_coarse = self.thin(level-1,u_full)
             f_coarse = self.thin(level-1,f_full)
             y_coarse = self.evaluate_from_u_f(level-1,u_coarse,f_coarse,pde_solve_kwargs)
             # qoi_coarse = y_coarse[...,h,h]**2
             qoi_coarse = y_coarse.amax((-2,-1))
+            # qoi_coarse = y_coarse.std((-2,-1))
             qoi = qoi_fine-qoi_coarse
         else:
             qoi = qoi_fine
@@ -301,39 +340,47 @@ if __name__=="__main__":
     import torch 
     torch.set_default_dtype(torch.float64)
     df = DarcyFlow2d(device="cuda")
-    print(df.raw_costs)
-    print(df.adjusted_costs)
+    # print(df.adjusted_costs)
     """ SOLVER TESTING """ 
-    # n = 1000
-    # nplt = 5
-    # x = np.random.rand(n,df.d)
-    # us = [[None]*df.levels for i in range(n)]
-    # ys = [[None]*df.levels for i in range(n)]
-    # u,f = df.draw_u_f(level=-1,shape=n)
-    # us = [df.thin(l,u) for l in range(df.levels)]
-    # fs = [df.thin(l,f) for l in range(df.levels)]
-    # ys = [None]*df.levels
-    # for l in range(df.levels):
-    #     u_l = us[l]
-    #     print("u_l.shape = %s"%str(tuple(u_l.shape)))
-    #     f_l = fs[l]
-    #     print("f_l.shape = %s"%str(tuple(f_l.shape)))
-    #     y_l = df.evaluate_from_u_f(level=l,u=u_l,f=f_l,pde_solve_kwargs={"verbose":True})
-    #     print("y_l.shape = %s"%str(tuple(y_l.shape)))
-    #     ys[l] = y_l
-    #     print()
-    # df.plot_contour_grid([[fs[l][i] for l in range(df.levels)] for i in range(nplt)],figpath="darcy_f.png")
-    # df.plot_contour_grid([[us[l][i][0] for l in range(df.levels)] for i in range(nplt)],figpath="darcy_u.png")
-    # df.plot_contour_grid([[ys[l][i] for l in range(df.levels)] for i in range(nplt)],figpath="darcy_y.png")
+    n = 100
+    nplt = 8
+    x = np.random.rand(n,df.d)
+    us = [[None]*df.levels for i in range(n)]
+    ys = [[None]*df.levels for i in range(n)]
+    u,f = df.draw_u_f(level=-1,shape=n)
+    us = [df.thin(l,u) for l in range(df.levels)]
+    fs = [df.thin(l,f) for l in range(df.levels)]
+    ys = [None]*df.levels
+    for l in range(df.levels):
+        u_l = us[l]
+        print("u_l.shape = %s"%str(tuple(u_l.shape)))
+        f_l = fs[l]
+        print("f_l.shape = %s"%str(tuple(f_l.shape)))
+        y_l = df.evaluate_from_u_f(level=l,u=u_l,f=f_l,pde_solve_kwargs={"verbose":True})
+        print("y_l.shape = %s"%str(tuple(y_l.shape)))
+        ys[l] = y_l
+        print()
+    df.plot_contour_grid([[fs[l][i] for l in range(df.levels)] for i in range(nplt)],figpath="darcy_f.png")
+    df.plot_contour_grid([[us[l][i][0] for l in range(df.levels)] for i in range(nplt)],figpath="darcy_u.png")
+    df.plot_contour_grid([[ys[l][i] for l in range(df.levels)] for i in range(nplt)],figpath="darcy_y.png")
     """ MLQMC TESTING """ 
     qhat_prev = 0
-    x = qp.DigitalNetB2(df.d,seed=7)(2**11)
-    print("MLQMC Test with x.shape = %s"%str(x.shape))
+    n = [2**19,2**18,2**13]
+    # n = [2**15,2**14,2**9]
+    print("MLQMC Test")
     for l in range(df.levels):
+        x = qp.DigitalNetB2(df.d,seed=l)(n[l])
+        start = torch.cuda.Event(enable_timing=True)
+        end = torch.cuda.Event(enable_timing=True)
+        start.record()
         q = df(level=l,samples=x)
+        end.record()
+        torch.cuda.synchronize()
+        time_l = 0.001*start.elapsed_time(end)/n[l]
         qhat_l = q.mean()
         yhat_l = qhat_l-qhat_prev
-        print("    Qhat[l] = %-10.3f Yhat[l] = %.2e"%(qhat_l,yhat_l))
+        print("    n[%d] = %-10d Qhat[%d] = %-25.15f Yhat[%d] = %-25.15e time[%d] = %-.15e"%(l,n[l],l,qhat_l,l,yhat_l,l,time_l))
         qhat_prev = qhat_l
+
 
 
