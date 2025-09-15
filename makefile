@@ -131,3 +131,17 @@ sl32:
 	python examples/budgeted_comparison/experiment.py -d 32 --outdir SL/d32/ --parallel 10 -p "Genz Corner-Peak 3"
 
 sl: sl1 sl2 sl4 sl8 sl16 sl32
+
+asianopt:
+	python examples/budgeted_comparison/experiment.py --outdir ML/ --parallel 10 -p "Asian Option"
+
+lookbackopt:
+	python examples/budgeted_comparison/experiment.py --outdir ML/ --parallel 10 -p "Lookback Option"
+
+optionpricing: asianopt lookbackopt
+
+elliptic: 
+	python examples/budgeted_comparison/experiment.py --outdir ML/ --parallel 10 -p "Elliptic PDE"
+
+
+

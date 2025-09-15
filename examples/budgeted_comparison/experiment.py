@@ -54,7 +54,7 @@ def main(problem_name, dimension, dataroot, trial_start, trial_end, true_solutio
         assert dimension is None 
         dimension = 8
         num_levels = 4
-        m_min = 2
+        m_min = 3
         m_max = 14
         cost_per_level = 2.**(np.arange(num_levels)-num_levels+1)
         initial_cost_prop_max_budget = 1/4
@@ -82,7 +82,7 @@ def main(problem_name, dimension, dataroot, trial_start, trial_end, true_solutio
         dimension = problem.ds
         num_levels = problem.levels
         m_min = 4
-        m_max = 10
+        m_max = 11
         cost_per_level = 2.**(np.arange(num_levels)-num_levels+1)
         initial_cost_prop_max_budget = 1/4
     elif problem_name == "Lookback Option":
@@ -91,7 +91,7 @@ def main(problem_name, dimension, dataroot, trial_start, trial_end, true_solutio
         dimension = problem.ds
         num_levels = problem.levels
         m_min = 4
-        m_max = 10
+        m_max = 11
         cost_per_level = 2.**(np.arange(num_levels)-num_levels+1)
         initial_cost_prop_max_budget = 1/4
     elif problem_name == "Darcy Flow PDE 2D":
@@ -382,7 +382,7 @@ if __name__=="__main__":
         "-d",
         "--dimension",
         type = int,
-        default = 1,
+        default = None,
         help = "problem dimension if applicable"
     )
     parser.add_argument(
