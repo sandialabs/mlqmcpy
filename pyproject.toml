@@ -7,7 +7,7 @@ dependencies = [
     "numpy>=2.2.2",
     "qmcpy>=2.0.0.1c2",
     "prettytable>=3.5.0",
-    "fastgps>=1.0.0.1b2",
+    "fastgps>=1.0.0.1b3",
     "torch>=2.6.0",
 ]
 requires-python = ">=3.12"

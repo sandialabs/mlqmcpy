@@ -1,3 +1,4 @@
+# "\n".join([l for l in torch.cuda.memory_summary(device="cuda:1",abbreviated=True).split("\n") if "Allocations" in l])
 import numpy as np 
 import qmcpy as qp 
 import types 

@@ -348,11 +348,9 @@ def main(problem_name, dimension, dataroot, trial_start, trial_end, true_solutio
                     problem_tf = lambda level,x: problem_l_or_ml(level,1-2*np.abs(x-1/2))
                 else:
                     raise Exception("tf_type %s not available"%str(tf_type))
-                for iter, new_samples in enumerate(iterator):
+                for it, new_samples in enumerate(iterator):
                     new_results = {level: problem_tf(level,samples) for level,samples in new_samples.items()}
                     iterator.update(new_results)
-                if iterator.standard_error==0:
-                    pass
                 costs[i,j,t] = iterator.cost
                 means[i,j,t] = iterator.mean
                 std_errors[i,j,t] = iterator.standard_error
@@ -360,11 +358,11 @@ def main(problem_name, dimension, dataroot, trial_start, trial_end, true_solutio
                 samples_per_level[i,j,t] = iterator.total_samples_per_level.copy()
                 if verbose and t%verbose==0:
                     file.write("\t\t\ttrial: %-6d iteration: %-6d cost: %-10d mean: %-15.3e std error: %-15.3e true error: %-15.3e time %-15d sample sizes %s\n"%\
-                    (t,iter,costs[i,j,t],means[i,j,t],std_errors[i,j,t],true_errors[i,j,t],int(np.ceil(time.perf_counter()-t0)),np.array_repr(samples_per_level[i,j,t].astype(int)).replace('\n', '')))
+                    (t,it,costs[i,j,t],means[i,j,t],std_errors[i,j,t],true_errors[i,j,t],int(np.ceil(time.perf_counter()-t0)),np.array_repr(samples_per_level[i,j,t].astype(int)).replace('\n', '')))
                     file.flush()
-                #import psutil; process = psutil.Process(os.getpid()); file.write(f"Total program memory: {process.memory_info().rss / (1024 * 1024):.2f} MB\n")
-                # del iterator
                 # import gc; gc.collect()
+                # import psutil; process = psutil.Process(os.getpid())
+                # print(torch.cuda.memory_allocated(device=device),process.memory_info().rss/(1024 * 1024))
         file.write("\n")
         file.flush()
     file.close()
