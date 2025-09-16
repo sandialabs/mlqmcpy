@@ -85,8 +85,26 @@ def main(problem_name, dimension, dataroot, trial_start, trial_end, true_solutio
         m_max = 11
         cost_per_level = 2.**(np.arange(num_levels)-num_levels+1)
         initial_cost_prop_max_budget = 1/4
+    elif problem_name == "Asian Option Indep":
+        problem = MLFinancialOption(qmcpy_financial_option_args="ASIAN",weights="INDEPENDENT")
+        assert dimension is None 
+        dimension = problem.ds
+        num_levels = problem.levels
+        m_min = 4
+        m_max = 11
+        cost_per_level = 2.**(np.arange(num_levels)-num_levels+1)
+        initial_cost_prop_max_budget = 1/4
     elif problem_name == "Lookback Option":
         problem = MLFinancialOption(qmcpy_financial_option_args="LOOKBACK")
+        assert dimension is None 
+        dimension = problem.ds
+        num_levels = problem.levels
+        m_min = 4
+        m_max = 11
+        cost_per_level = 2.**(np.arange(num_levels)-num_levels+1)
+        initial_cost_prop_max_budget = 1/4
+    elif problem_name == "Lookback Option Indep":
+        problem = MLFinancialOption(qmcpy_financial_option_args="LOOKBACK",weights="INDEPENDENT")
         assert dimension is None 
         dimension = problem.ds
         num_levels = problem.levels

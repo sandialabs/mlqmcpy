@@ -132,13 +132,24 @@ sl32:
 
 sl: sl1 sl2 sl4 sl8 sl16 sl32
 
-asianopt:
+asianopttele:
 	python examples/budgeted_comparison/experiment.py --outdir ML/ --parallel 10 -p "Asian Option"
 
-lookbackopt:
+lookbackopttele:
 	python examples/budgeted_comparison/experiment.py --outdir ML/ --parallel 10 -p "Lookback Option"
 
-optionpricing: asianopt lookbackopt
+optionpricingtele: asianopttele lookbackopttele
+
+asianoptindep:
+	python examples/budgeted_comparison/experiment.py --outdir ML/ --parallel 10 -p "Asian Option Indep"
+
+lookbackoptindep:
+	python examples/budgeted_comparison/experiment.py --outdir ML/ --parallel 10 -p "Lookback Option Indep" -f 
+
+optionpricingindep: asianoptindep lookbackoptindep
+
+optionpricing: optionpricingtele optionpricingindep
+
 
 elliptic: 
 	python examples/budgeted_comparison/experiment.py --outdir ML/ --parallel 10 -p "Elliptic PDE"
