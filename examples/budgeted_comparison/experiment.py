@@ -441,7 +441,7 @@ if __name__=="__main__":
     parser.add_argument(
         "--nrefapprox",
         type = int,
-        default = 2**21,
+        default = 2**23,
         help = "seed for the reference approximation if required"
     )
     parser.add_argument(
