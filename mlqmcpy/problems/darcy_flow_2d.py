@@ -39,10 +39,10 @@ class DarcyFlow2d(object):
             self.exact.Y = types.SimpleNamespace()
             #self.exact_values = np.array([0.041626055544059,0.013428061097414,0.012431490423060])
             #self.exact_diffs = np.array([4.162605554405886e-02,-2.819799444664468e-02,-9.965706743537035e-04])
-            self.exact_values = np.array([0.045731827083527,0.046956554309946,0.046893108081545])
-            self.exact_diffs = np.array([4.573182708352660e-02,1.224727226419649e-03,-6.344622840109143e-05])
-            self.exact.Q.mean = lambda level: self.exact_values[level]
-            self.exact.Y.mean = lambda level: self.exact_diffs[level]
+            # self.exact_values = np.array([0.045731827083527,0.046956554309946,0.046893108081545])
+            # self.exact_diffs = np.array([4.573182708352660e-02,1.224727226419649e-03,-6.344622840109143e-05])
+            # self.exact.Q.mean = lambda level: self.exact_values[level]
+            # self.exact.Y.mean = lambda level: self.exact_diffs[level]
         levels = 3 if levels is None else levels
         n_coarsest = 8  if n_coarsest is None else n_coarsest
         nonlinearity_factor = 1  if nonlinearity_factor is None else nonlinearity_factor

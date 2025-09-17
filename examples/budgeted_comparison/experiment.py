@@ -30,7 +30,7 @@ import sys
 import multiprocessing
 import argparse
 
-def main(problem_name, dimension, dataroot, trial_start, trial_end, true_solution, ref_approx_seed, device):
+def main(problem_name, dimension, dataroot, trial_start, trial_end, true_solution, ref_approx_seed, initsamplingscheme, device):
     if problem_name == "Analytic":
         problem = analytic
         assert dimension is None 
@@ -118,8 +118,8 @@ def main(problem_name, dimension, dataroot, trial_start, trial_end, true_solutio
         assert dimension is None 
         dimension = problem.d
         num_levels = problem.levels
-        m_min = 3
-        m_max = 10
+        m_min = 7
+        m_max = 13
         cost_per_level = problem.adjusted_costs
         initial_cost_prop_max_budget = 1/4
     elif "Ridge" in problem_name:
@@ -213,7 +213,6 @@ def main(problem_name, dimension, dataroot, trial_start, trial_end, true_solutio
     print("\t%s"%fname)
     file = open(fname,"w")
     # parameters 
-    initial_sampling_alloc = "PROP" # ["PROP","EQUAL"]
     mtgp_budget_scheme = "GREEDY" # ["GREEDY","FULL"]
     max_budgets = 2**np.arange(m_min,m_max)
     kwargs_discrete_distrib_construct = {}
@@ -305,14 +304,14 @@ def main(problem_name, dimension, dataroot, trial_start, trial_end, true_solutio
     samples_per_level = np.nan*np.ones((len(zip_name_IteratorClass_kwargs),len(max_budgets),trials,num_levels),dtype=int)
     for j in range(len(max_budgets)):
         max_budget = max_budgets[j]
-        if initial_sampling_alloc.upper()=="PROP":
+        if initsamplingscheme.upper()=="PROP":
             sample_size_alloc = max_budget/num_levels/cost_per_level
-        elif initial_sampling_alloc.upper()=="EQUAL":
+        elif initsamplingscheme.upper()=="EQUAL":
             sample_size_alloc = max_budget/num_levels*np.ones(num_levels)
         else:
-            assert False,"initial_sampling_alloc should be 'PROP' or 'EQUAL'"
+            assert False,"initsamplingscheme should be 'PROP' or 'EQUAL'"
         if (sample_size_alloc<1).any():
-            raise Exception("try increasing minimum budget: using max_budget = %d with %s allocation gives invalid sample sizes  %s"%(max_budget,initial_sampling_alloc,sample_size_alloc)) 
+            raise Exception("try increasing minimum budget: using max_budget = %d with %s allocation gives invalid sample sizes  %s"%(max_budget,initsamplingscheme,sample_size_alloc)) 
         file.write("\tmax_budget = %d, trying sample_size_alloc = %s\n\n"%(max_budget,np.array_repr(sample_size_alloc.astype(int)).replace('\n', '')))
         for i,(name,IteratorClass,kwargs,tf_type) in enumerate(zip_name_IteratorClass_kwargs):
             if IteratorClass==mp.GreedyMLQMCIterator:
@@ -451,6 +450,12 @@ if __name__=="__main__":
         default = 7,
         help = "seed for the reference approximation if required"
     )
+    parser.add_argument(
+        "--initsamplingscheme",
+        type = str,
+        default = "PROP",
+        help = "PROP or EQUAL"
+    )
     args = parser.parse_args()
     assert args.parallel>0
     if isinstance(args.devices,int):
@@ -467,11 +472,11 @@ if __name__=="__main__":
     os.makedirs(dataroot)
     # approximate true solution 
     if args.parallel==1:
-        main(args.problem,args.dimension,dataroot,0,args.nrefapprox,None,args.refapproxseed,devices[0])
+        main(args.problem,args.dimension,dataroot,0,args.nrefapprox,None,args.refapproxseed,args.initsamplingscheme,devices[0])
     else:
         bs = int(np.ceil(args.nrefapprox/args.parallel))
         n_blocks = [(i*bs,min(args.nrefapprox,(i+1)*bs)) for i in range(args.parallel)]
-        processes = [torch.multiprocessing.Process(target=main,args=(args.problem,args.dimension,dataroot,n_min,n_max,None,args.refapproxseed,devices[i])) for i,(n_min,n_max) in enumerate(n_blocks)]
+        processes = [torch.multiprocessing.Process(target=main,args=(args.problem,args.dimension,dataroot,n_min,n_max,None,args.refapproxseed,args.initsamplingscheme,devices[i])) for i,(n_min,n_max) in enumerate(n_blocks)]
         for p in processes: p.start()
         for p in processes: p.join()
     true_solution = 0
@@ -485,11 +490,11 @@ if __name__=="__main__":
     true_solution = true_solution/args.nrefapprox
     # run ML(Q)MC simulations
     if args.parallel==1:
-        main(args.problem,args.dimension,dataroot,0,args.trials,true_solution,None,devices[0])
+        main(args.problem,args.dimension,dataroot,0,args.trials,true_solution,None,args.initsamplingscheme,devices[0])
     else:
         bs = int(np.ceil(args.trials/args.parallel))
         trial_blocks = [(i*bs,min(args.trials,(i+1)*bs)) for i in range(args.parallel)]
-        processes = [torch.multiprocessing.Process(target=main,args=(args.problem,args.dimension,dataroot,trial_start,trial_end,true_solution,None,devices[i])) for i,(trial_start,trial_end) in enumerate(trial_blocks)]
+        processes = [torch.multiprocessing.Process(target=main,args=(args.problem,args.dimension,dataroot,trial_start,trial_end,true_solution,None,args.initsamplingscheme,devices[i])) for i,(trial_start,trial_end) in enumerate(trial_blocks)]
         for p in processes: p.start()
         for p in processes: p.join()
     print()
