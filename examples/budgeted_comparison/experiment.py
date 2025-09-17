@@ -55,7 +55,7 @@ def main(problem_name, dimension, dataroot, trial_start, trial_end, true_solutio
         dimension = 8
         num_levels = 4
         m_min = 3
-        m_max = 14
+        m_max = 16
         cost_per_level = 2.**(np.arange(num_levels)-num_levels+1)
         initial_cost_prop_max_budget = 1/4
     elif problem_name == "Asian Option KL":
@@ -82,7 +82,7 @@ def main(problem_name, dimension, dataroot, trial_start, trial_end, true_solutio
         dimension = problem.ds
         num_levels = problem.levels
         m_min = 4
-        m_max = 11
+        m_max = 13
         cost_per_level = 2.**(np.arange(num_levels)-num_levels+1)
         initial_cost_prop_max_budget = 1/4
     elif problem_name == "Asian Option Indep":
@@ -91,7 +91,7 @@ def main(problem_name, dimension, dataroot, trial_start, trial_end, true_solutio
         dimension = problem.ds
         num_levels = problem.levels
         m_min = 4
-        m_max = 11
+        m_max = 13
         cost_per_level = 2.**(np.arange(num_levels)-num_levels+1)
         initial_cost_prop_max_budget = 1/4
     elif problem_name == "Lookback Option":
@@ -100,7 +100,7 @@ def main(problem_name, dimension, dataroot, trial_start, trial_end, true_solutio
         dimension = problem.ds
         num_levels = problem.levels
         m_min = 4
-        m_max = 11
+        m_max = 13
         cost_per_level = 2.**(np.arange(num_levels)-num_levels+1)
         initial_cost_prop_max_budget = 1/4
     elif problem_name == "Lookback Option Indep":
@@ -109,7 +109,7 @@ def main(problem_name, dimension, dataroot, trial_start, trial_end, true_solutio
         dimension = problem.ds
         num_levels = problem.levels
         m_min = 4
-        m_max = 11
+        m_max = 13
         cost_per_level = 2.**(np.arange(num_levels)-num_levels+1)
         initial_cost_prop_max_budget = 1/4
     elif problem_name == "Nonlinear Darcy PDE":
@@ -441,7 +441,7 @@ if __name__=="__main__":
     parser.add_argument(
         "--nrefapprox",
         type = int,
-        default = 2**19,
+        default = 2**21,
         help = "seed for the reference approximation if required"
     )
     parser.add_argument(
