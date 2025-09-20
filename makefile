@@ -159,5 +159,5 @@ darcy:
 ml: elliptic optionpricingtele
 
 tmp:
-	python examples/budgeted_comparison/experiment.py --tag ".TMP" -f -d 2 --outdir SL/d2/ --parallel 10 -p "Sumxex" --trials 50
+	python examples/budgeted_comparison/experiment.py --tag ".TMP" -f --outdir ML/ --parallel 10 -p "Asian Option"
 

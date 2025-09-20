@@ -16,6 +16,7 @@ from .point_generators import (
 from .solvers import (
     AnalyticSampleAllocationProblemSolver,
     GreedySampleAllocationProblemSolver,
+    GPSampleAllocationProblemSolver,
 )
 
 class AbstractMultilevelFactory(ABC):
@@ -102,10 +103,11 @@ class GreedyMLQMCFactory(AbstractMultilevelFactory):
         return GreedySampleAllocationProblemSolver(initial_sample_size_list)
 
 
-class GreedyGaussianProcessMLQMCFactory(AbstractMultilevelFactory):
+class GaussianProcessMLQMCFactory(AbstractMultilevelFactory):
     """Concrete factory for a Greedy MLQMC iterator using Fast GPs."""
 
-    def __init__(self, kwargs_fastgp_construct, kwargs_discrete_distrib_construct, kernel_class, kwargs_kernel_construct, kwargs_fastgp_fit, fast, refit_gps):
+    def __init__(self, scheme, kwargs_fastgp_construct, kwargs_discrete_distrib_construct, kernel_class, kwargs_kernel_construct, kwargs_fastgp_fit, fast, refit_gps):
+        self.scheme = scheme 
         self.fgp_list = []
         self.fgp_counter = 0
         self.kwargs_fastgp_construct = kwargs_fastgp_construct
@@ -140,7 +142,7 @@ class GreedyGaussianProcessMLQMCFactory(AbstractMultilevelFactory):
             GPClass = fastgps.FastGPDigitalNetB2
             KernelClass = qp.KernelDigShiftInvar if self.kernel_class is None else self.kernel_class
         else:
-            assert not self.fast, "GreedyGaussianProcessMLQMCIterator does not support fast=True when discrete_distribution_type not in [qp.Lattice, qp.DigitalNetB2]"
+            assert not self.fast, "GaussianProcessMLQMCIterator does not support fast=True when discrete_distribution_type not in [qp.Lattice, qp.DigitalNetB2]"
             GPClass = fastgps.StandardGP
             KernelClass = qp.KernelSquaredExponential if self.kernel_class is None else self.kernel_class
         
@@ -152,4 +154,10 @@ class GreedyGaussianProcessMLQMCFactory(AbstractMultilevelFactory):
         return FastGaussianProcessPointGenerator(self.fgp_list[-1])
 
     def create_sample_allocation_solver(self, initial_sample_size_list):
-        return GreedySampleAllocationProblemSolver(initial_sample_size_list)
+        if self.scheme.upper()=="GREEDY":
+            return GreedySampleAllocationProblemSolver(initial_sample_size_list)
+        elif self.scheme.upper()=="GREEDY PROP":
+            return GPSampleAllocationProblemSolver(initial_sample_size_list)
+        else:
+            raise Exception("invalid scheme %s, should be either 'GREEDY' or 'GREEDY PROP'"%self.scheme.upper())
+

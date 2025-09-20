@@ -6,7 +6,7 @@ from prettytable import PrettyTable
 from .factories import (
     AbstractMultilevelFactory,
     AnalyticMLMCFactory,
-    GreedyGaussianProcessMLQMCFactory,
+    GaussianProcessMLQMCFactory,
     GreedyMLMCFactory,
     GreedyMLQMCFactory,
 )
@@ -257,8 +257,8 @@ class GreedyMLQMCIterator(AbstractMultilevelIterator):
         super().__init__(*args, factory=factory, **kwargs)
 
 
-class GreedyGaussianProcessMLQMCIterator(AbstractMultilevelIterator):
-    """Iterator for Fast Gaussian Process MLQMC using replications."""
+class GaussianProcessMLQMCIterator(AbstractMultilevelIterator):
+    """Iterator for Fast Gaussian Process MLQMC without replications."""
 
     ALLOWED_KEYS = {
         "cost_per_level",
@@ -270,6 +270,12 @@ class GreedyGaussianProcessMLQMCIterator(AbstractMultilevelIterator):
     }
 
     def __init__(self, *args, **kwargs):
+        if "scheme" in kwargs:
+            scheme = kwargs["scheme"]
+            del kwargs["scheme"]
+        else:
+            scheme = "GREEDY"
+
         if "kwargs_fastgp_construct" in kwargs:
             kwargs_fastgp_construct = kwargs["kwargs_fastgp_construct"]
             del kwargs["kwargs_fastgp_construct"]
@@ -316,7 +322,8 @@ class GreedyGaussianProcessMLQMCIterator(AbstractMultilevelIterator):
             if key not in self.ALLOWED_KEYS:
                 raise ValueError(f"Invalid keyword argument provided: '{key}'")
 
-        factory = GreedyGaussianProcessMLQMCFactory(
+        factory = GaussianProcessMLQMCFactory(
+            scheme = scheme,
             kwargs_fastgp_construct=kwargs_fastgp_construct,
             kwargs_discrete_distrib_construct=kwargs_discrete_distrib_construct,
             kernel_class=kernel_class,

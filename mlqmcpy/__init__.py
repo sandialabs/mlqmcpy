@@ -2,7 +2,7 @@ from .iterators import (
     AnalyticMLMCIterator,
     GreedyMLMCIterator,
     GreedyMLQMCIterator,
-    GreedyGaussianProcessMLQMCIterator,
+    GaussianProcessMLQMCIterator,
     MultiTaskGaussianProcessMLQMCIteratorFunction,
     MultiTaskGaussianProcessMLQMCIteratorDifference,
 )
@@ -12,7 +12,7 @@ __all__ = [
     "AnalyticMLMCIterator",
     "GreedyMLMCIterator",
     "GreedyMLQMCIterator",
-    "GreedyGaussianProcessMLQMCIterator",
+    "GaussianProcessMLQMCIterator",
     "MultiTaskGaussianProcessMLQMCIteratorFunction",
     "MultiTaskGaussianProcessMLQMCIteratorDifference",
     "multilevel",

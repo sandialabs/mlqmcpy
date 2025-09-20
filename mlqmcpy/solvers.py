@@ -82,6 +82,53 @@ class GreedySampleAllocationProblemSolver(AbstractSampleAllocationProblemSolver)
             int(levels[idx]): int(n[idx])
         }
         return new_sample_sizes
+    
+class GPSampleAllocationProblemSolver(AbstractSampleAllocationProblemSolver):
+    """
+    Allocate to the level with the greatest decrease in standard error per unit cost
+    """
+    
+    def _step(self, accumulators, stopping_criterion):
+        n = np.array([accumulator.num_samples for accumulator in accumulators]).astype(int)
+        costs = np.array([accumulator.cost for accumulator in accumulators])
+        current_costs = n*costs # the current cost is also the next cost as we double the sample size on each level
+        total_current_cost = np.sum(current_costs)
+        remaining_budget = stopping_criterion.max_budget - total_current_cost
+        feasible = False
+        for l,(nl,cl,ccl,accl) in enumerate(zip(n,costs,current_costs,accumulators)):
+            if ccl>remaining_budget: continue # don't consider levels where doubling the sample size would put us over budget
+            if not feasible:
+                # this is the first level we have seen where doubling the sample size stays under budget
+                feasible = True
+                idx,nl_best,ccl_best,accl_best = l,nl,ccl,accl
+                continue
+            if ccl_best==ccl:
+                best_dec = max(0,(accl_best._fgp.post_cubature_var()-accl_best._fgp.post_cubature_var(n=int(2*nl_best))).cpu().item())
+                curr_dec = max(0,(accl._fgp.post_cubature_var()-accl._fgp.post_cubature_var(n=int(2*nl))).cpu()).item()
+            elif ccl_best>ccl:
+                nl_new = nl 
+                ccl_new = ccl 
+                while 2*ccl_new<=ccl_best:
+                    nl_new *= 2 
+                    ccl_new *= 2
+                best_dec = max(0,(accl_best._fgp.post_cubature_var()-accl_best._fgp.post_cubature_var(n=int(2*nl_best))).cpu().item())
+                curr_dec = max(0,(accl._fgp.post_cubature_var()-accl._fgp.post_cubature_var(n=int(nl_new))).cpu()).item()
+            else: # ccl_best<ccl
+                nl_best_new = nl_best 
+                ccl_best_new = ccl_best 
+                while 2*ccl_best_new<=ccl:
+                    nl_best_new *= 2
+                    ccl_best_new *= 2
+                best_dec = max(0,(accl_best._fgp.post_cubature_var()-accl_best._fgp.post_cubature_var(n=int(nl_best_new))).cpu().item())
+                curr_dec = max(0,(accl._fgp.post_cubature_var()-accl._fgp.post_cubature_var(n=int(2*nl))).cpu()).item()
+            if curr_dec>best_dec:
+                idx,nl_best,ccl_best,accl_best = l,nl,ccl,accl
+        if not feasible:
+            raise StopIteration
+        pass
+        new_sample_sizes = {int(idx): int(n[idx])}
+        return new_sample_sizes
+
 
 
 class AnalyticSampleAllocationProblemSolver(AbstractSampleAllocationProblemSolver):
