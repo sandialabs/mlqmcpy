@@ -224,9 +224,11 @@ def main(problem_name, dimension, dataroot, trial_start, trial_end, true_solutio
     kwargs_kernel_mt_construct = {"rank_factor":num_levels}
     kwargs_fastgp_construct = {"requires_grad_noise":False}
     kwargs_fastgp_fit = {
-        "loss_metric": "MLL",
-        "stop_crit_improvement_threshold": 1e-1,
+        # "loss_metric": "MLL",
+        # "stop_crit_improvement_threshold": 1e-1,
+        # "stop_crit_improvement_threshold": 1e0,
         "verbose": 0,
+        # "verbose": int(1e10),
         # "lr": 1e0,
     }
     refit_igps = True
@@ -234,7 +236,7 @@ def main(problem_name, dimension, dataroot, trial_start, trial_end, true_solutio
     verbose = max(1,trials//10)
     zip_name_IteratorClass_kwargs = [
         ## MLMC
-        ("MC",mp.GreedyMLMCIterator,{},None),
+        # ("MC",mp.GreedyMLMCIterator,{},None),
         ## RQMC
         ##  LATTICE
         # (r"RQMC Lat $R=2$",mp.GreedyMLQMCIterator,{"discrete_distribution_type":qp.Lattice,"replications":2},"BAKER"),
@@ -390,7 +392,7 @@ if __name__=="__main__":
         "-p",
         "--problem",
         type = str,
-        default = "Ridge Jump Equal Weights",
+        default = "Sumxex",
         help = "problem name"
     )
     parser.add_argument(
@@ -415,7 +417,7 @@ if __name__=="__main__":
     parser.add_argument(
         "--tag",
         type = str,
-        default = "",
+        default = "TMP.",
         help = "tag"
     )
     parser.add_argument(

@@ -157,3 +157,7 @@ darcy:
 	python examples/budgeted_comparison/experiment.py --outdir ML/ --parallel 4 -p "Nonlinear Darcy PDE" --devices 1 2 3 4 --trials 100 --nrefapprox 524288 --initsamplingscheme EQUAL
 
 ml: elliptic optionpricingtele
+
+tmp:
+	python examples/budgeted_comparison/experiment.py --tag ".TMP" -f -d 2 --outdir SL/d2/ --parallel 10 -p "Sumxex" --trials 50
+
