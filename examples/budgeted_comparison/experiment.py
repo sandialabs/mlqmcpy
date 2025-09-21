@@ -226,7 +226,7 @@ def main(problem_name, dimension, dataroot, trial_start, trial_end, true_solutio
     kwargs_fastgp_fit = {
         # "loss_metric": "MLL",
         # "stop_crit_improvement_threshold": 1e-1,
-        # "stop_crit_improvement_threshold": 1e0,
+        "stop_crit_improvement_threshold": 1e0,
         "verbose": 0,
         # "verbose": int(1e10),
         # "lr": 1e0,
@@ -267,7 +267,7 @@ def main(problem_name, dimension, dataroot, trial_start, trial_end, true_solutio
         # (r"GPQMC Net $\alpha=3$",mp.GaussianProcessMLQMCIterator,{"discrete_distribution_type":qp.DigitalNetB2,"kwargs_discrete_distrib_construct":{"alpha":1,**kwargs_discrete_distrib_construct},"fast":True,"kwargs_fastgp_construct":kwargs_fastgp_construct,"kwargs_kernel_construct":{"alpha":3,**kwargs_kernel_construct},"kwargs_fastgp_fit":kwargs_fastgp_fit,"refit_gps":refit_igps},None),
         # (r"GPQMC Net $\alpha=4$",mp.GaussianProcessMLQMCIterator,{"discrete_distribution_type":qp.DigitalNetB2,"kwargs_discrete_distrib_construct":{"alpha":1,**kwargs_discrete_distrib_construct},"fast":True,"kwargs_fastgp_construct":kwargs_fastgp_construct,"kwargs_kernel_construct":{"alpha":4,**kwargs_kernel_construct},"kwargs_fastgp_fit":kwargs_fastgp_fit,"refit_gps":refit_igps},None),
         (r"GPQMC Net           ",mp.GaussianProcessMLQMCIterator,{"discrete_distribution_type":qp.DigitalNetB2,"kwargs_discrete_distrib_construct":{"alpha":1,**kwargs_discrete_distrib_construct},"fast":True,"kwargs_fastgp_construct":kwargs_fastgp_construct,"kwargs_kernel_construct":kwargs_kernel_construct,"kwargs_fastgp_fit":kwargs_fastgp_fit,"refit_gps":refit_igps,"kernel_class":qp.KernelDigShiftInvarCombined},None),
-        (r"GPQMC Net NEW       ",mp.GaussianProcessMLQMCIterator,{"scheme":"GREEDY PROP","discrete_distribution_type":qp.DigitalNetB2,"kwargs_discrete_distrib_construct":{"alpha":1,**kwargs_discrete_distrib_construct},"fast":True,"kwargs_fastgp_construct":kwargs_fastgp_construct,"kwargs_kernel_construct":kwargs_kernel_construct,"kwargs_fastgp_fit":kwargs_fastgp_fit,"refit_gps":refit_igps,"kernel_class":qp.KernelDigShiftInvarCombined},None),
+        # (r"GPQMC Net GREEDY    ",mp.GaussianProcessMLQMCIterator,{"scheme":"GREEDY","discrete_distribution_type":qp.DigitalNetB2,"kwargs_discrete_distrib_construct":{"alpha":1,**kwargs_discrete_distrib_construct},"fast":True,"kwargs_fastgp_construct":kwargs_fastgp_construct,"kwargs_kernel_construct":kwargs_kernel_construct,"kwargs_fastgp_fit":kwargs_fastgp_fit,"refit_gps":refit_igps,"kernel_class":qp.KernelDigShiftInvarCombined},None),
         ## MTGPF
         ##   FAST 
         ##       LATTICE
@@ -426,7 +426,7 @@ if __name__=="__main__":
         "-t",
         "--trials",
         type = int,
-        default = 100,
+        default = 250,
         help = "trials"
     )
     parser.add_argument(

@@ -274,7 +274,7 @@ class GaussianProcessMLQMCIterator(AbstractMultilevelIterator):
             scheme = kwargs["scheme"]
             del kwargs["scheme"]
         else:
-            scheme = "GREEDY"
+            scheme = "GREEDY PROP"
 
         if "kwargs_fastgp_construct" in kwargs:
             kwargs_fastgp_construct = kwargs["kwargs_fastgp_construct"]

@@ -5,9 +5,9 @@ description = "Multilevel quasi-Monte Carlo in Python."
 dependencies = [
     "boost-histogram>=1.5.1",
     "numpy>=2.2.2",
-    "qmcpy>=2.0.0.1c3",
+    "qmcpy>=2.0.0.1c4",
     "prettytable>=3.5.0",
-    "fastgps>=1.0.0.1b5",
+    "fastgps>=1.0.0.1b7",
     "torch>=2.6.0",
 ]
 requires-python = ">=3.12"
