@@ -112,7 +112,7 @@ class GPSampleAllocationProblemSolver(AbstractSampleAllocationProblemSolver):
                 nl_tried += [nl_try]
                 pcvars_tried += [accl._fgp.post_cubature_var(n=int(nl_try)).cpu().item()]
             nl_tried,pcvars_tried = np.hstack(nl_tried),np.hstack(pcvars_tried)
-            slope,intercept = np.polyfit(np.log(nl_tried[-2:]),np.log(pcvars_tried[-2:]),1) # assume pcvar = 10**intercept*n**slope
+            slope,intercept = np.polyfit(np.log(nl_tried[-2:]),np.log(pcvars_tried[-2:]),1) # assume pcvar = e**intercept*n**slope
             nlstar = cl_best/cpsl+n[l] # solves cpsl*(nlstar-n[l]) = cl_best
             candidate_pcvar = np.exp(intercept)*nlstar**slope
             candidate_decrease = max(0,(pcvars_tried[0]-candidate_pcvar).item())
