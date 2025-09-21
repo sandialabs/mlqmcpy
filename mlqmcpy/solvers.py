@@ -90,43 +90,39 @@ class GPSampleAllocationProblemSolver(AbstractSampleAllocationProblemSolver):
     
     def _step(self, accumulators, stopping_criterion):
         n = np.array([accumulator.num_samples for accumulator in accumulators]).astype(int)
-        costs = np.array([accumulator.cost for accumulator in accumulators])
-        current_costs = n*costs # the current cost is also the next cost as we double the sample size on each level
-        total_current_cost = np.sum(current_costs)
-        remaining_budget = stopping_criterion.max_budget - total_current_cost
+        cost_per_sample = np.array([accumulator.cost for accumulator in accumulators])
+        costs = n*cost_per_sample
+        remaining_budget = stopping_criterion.max_budget - np.sum(costs)
         feasible = False
-        for l,(nl,cl,ccl,accl) in enumerate(zip(n,costs,current_costs,accumulators)):
-            if ccl>remaining_budget: continue # don't consider levels where doubling the sample size would put us over budget
+        for l in (-costs).argsort():
+            if costs[l]>remaining_budget: continue
+            accl = accumulators[l]
+            # don't consider levels where doubling the sample size would put us over budget
             if not feasible:
                 # this is the first level we have seen where doubling the sample size stays under budget
                 feasible = True
-                idx,nl_best,ccl_best,accl_best = l,nl,ccl,accl
+                best_decrease = max(0,(accl._fgp.post_cubature_var()-accl._fgp.post_cubature_var(n=int(2*n[l]))).cpu().item())
+                l_best,cl_best = l,costs[l]
                 continue
-            if ccl_best==ccl:
-                best_dec = max(0,(accl_best._fgp.post_cubature_var()-accl_best._fgp.post_cubature_var(n=int(2*nl_best))).cpu().item())
-                curr_dec = max(0,(accl._fgp.post_cubature_var()-accl._fgp.post_cubature_var(n=int(2*nl))).cpu()).item()
-            elif ccl_best>ccl:
-                nl_new = nl 
-                ccl_new = ccl 
-                while 2*ccl_new<=ccl_best:
-                    nl_new *= 2 
-                    ccl_new *= 2
-                best_dec = max(0,(accl_best._fgp.post_cubature_var()-accl_best._fgp.post_cubature_var(n=int(2*nl_best))).cpu().item())
-                curr_dec = max(0,(accl._fgp.post_cubature_var()-accl._fgp.post_cubature_var(n=int(nl_new))).cpu()).item()
-            else: # ccl_best<ccl
-                nl_best_new = nl_best 
-                ccl_best_new = ccl_best 
-                while 2*ccl_best_new<=ccl:
-                    nl_best_new *= 2
-                    ccl_best_new *= 2
-                best_dec = max(0,(accl_best._fgp.post_cubature_var()-accl_best._fgp.post_cubature_var(n=int(nl_best_new))).cpu().item())
-                curr_dec = max(0,(accl._fgp.post_cubature_var()-accl._fgp.post_cubature_var(n=int(2*nl))).cpu()).item()
-            if curr_dec>best_dec:
-                idx,nl_best,ccl_best,accl_best = l,nl,ccl,accl
+            nl_try,cpsl = n[l],cost_per_sample[l]
+            nl_tried = [nl_try]
+            pcvars_tried = [accl._fgp.post_cubature_var(n=int(nl_try)).cpu().item()]
+            while (2*nl_try-n[l])*cpsl<=cl_best:
+                nl_try *= 2
+                nl_tried += [nl_try]
+                pcvars_tried += [accl._fgp.post_cubature_var(n=int(nl_try)).cpu().item()]
+            nl_tried,pcvars_tried = np.hstack(nl_tried),np.hstack(pcvars_tried)
+            slope,intercept = np.polyfit(np.log(nl_tried[-2:]),np.log(pcvars_tried[-2:]),1) # assume pcvar = 10**intercept*n**slope
+            nlstar = cl_best/cpsl+n[l] # solves cpsl*(nlstar-n[l]) = cl_best
+            candidate_pcvar = np.exp(intercept)*nlstar**slope
+            candidate_decrease = max(0,(pcvars_tried[0]-candidate_pcvar).item())
+            if candidate_decrease>best_decrease:
+                best_decrease = max(0,(pcvars_tried[0]-pcvars_tried[1]).item())
+                l_best,cl_best = l,costs[l]
         if not feasible:
             raise StopIteration
         pass
-        new_sample_sizes = {int(idx): int(n[idx])}
+        new_sample_sizes = {int(l_best): int(n[l_best])}
         return new_sample_sizes
 
 
