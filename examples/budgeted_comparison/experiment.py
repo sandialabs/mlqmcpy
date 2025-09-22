@@ -8,6 +8,7 @@ from mlqmcpy.problems import (
     steady_state_diffusion_1d,
     MLFinancialOption,
     DarcyFlow2d,
+    SlopeStability,
     RidgeJump,
     RidgeFinance,
     RidgeKink,
@@ -113,13 +114,22 @@ def main(problem_name, dimension, dataroot, trial_start, trial_end, true_solutio
         cost_per_level = 2.**(np.arange(num_levels)-num_levels+1)
         initial_cost_prop_max_budget = 1/4
     elif problem_name == "Nonlinear Darcy PDE":
-        assert device is not None, "Darcy Flow requires running on GPU"
+        assert device!="cpu", "Darcy Flow requires running on GPU"
         problem = DarcyFlow2d(device=device)
         assert dimension is None 
         dimension = problem.d
         num_levels = problem.levels
         m_min = 7
         m_max = 12
+        cost_per_level = problem.adjusted_costs
+        initial_cost_prop_max_budget = 1/4
+    elif problem_name == "Slope Stability":
+        problem = SlopeStability()
+        assert dimension is None 
+        dimension = problem.d
+        num_levels = problem.levels
+        m_min = 5
+        m_max = 9
         cost_per_level = problem.adjusted_costs
         initial_cost_prop_max_budget = 1/4
     elif "Ridge" in problem_name:

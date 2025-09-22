@@ -7,3 +7,4 @@ from .financial_options import MLFinancialOption
 from .darcy_flow_2d import DarcyFlow2d
 from .test_funcs import Sumxex,MC2,RidgeJump,RidgePL,RidgeKink,RidgeFinance,RidgeSmooth,RidgeJSU
 from .genz import Genz
+from .slope_stability import SlopeStability

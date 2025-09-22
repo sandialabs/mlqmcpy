@@ -158,6 +158,9 @@ darcy:
 
 ml: elliptic optionpricingtele
 
+slopestab:
+	python examples/budgeted_comparison/experiment.py --tag ".TMP"  --outdir ML/ --parallel 10 --trials 20 -p "Slope Stability" --nrefapprox 1024 --initsamplingscheme EQUAL -f
+
 tmp:
 	python examples/budgeted_comparison/experiment.py --tag ".TMP" -f --outdir ML/ --parallel 10 -p "Asian Option"
 
