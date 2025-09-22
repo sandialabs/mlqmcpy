@@ -154,7 +154,7 @@ elliptic:
 	python examples/budgeted_comparison/experiment.py --outdir ML/ --parallel 10 -p "Elliptic PDE"
 
 darcy:
-	python examples/budgeted_comparison/experiment.py --outdir ML/ --parallel 5 -p "Nonlinear Darcy PDE" --devices 1 2 3 4 5 --nrefapprox 524288 --initsamplingscheme EQUAL
+	nohup python examples/budgeted_comparison/experiment.py --outdir ML/ --parallel 5 -p "Nonlinear Darcy PDE" --devices 0 1 2 3 4 --nrefapprox 524288 --initsamplingscheme EQUAL > darcy.log & 
 
 ml: elliptic optionpricingtele
 

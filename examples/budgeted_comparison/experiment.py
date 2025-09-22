@@ -119,7 +119,7 @@ def main(problem_name, dimension, dataroot, trial_start, trial_end, true_solutio
         dimension = problem.d
         num_levels = problem.levels
         m_min = 7
-        m_max = 13
+        m_max = 12
         cost_per_level = problem.adjusted_costs
         initial_cost_prop_max_budget = 1/4
     elif "Ridge" in problem_name:
