@@ -162,7 +162,7 @@ def main(problem_name, dimension, dataroot, trial_start, trial_end, true_solutio
         assert isinstance(dimension,int)
         num_levels = 1
         m_min = 4
-        m_max = 15
+        m_max = 17
         cost_per_level = np.ones(1)
         initial_cost_prop_max_budget = 1
     elif problem_name=="Sumxex":
@@ -170,7 +170,7 @@ def main(problem_name, dimension, dataroot, trial_start, trial_end, true_solutio
         assert isinstance(dimension,int)
         num_levels = 1
         m_min = 4
-        m_max = 15
+        m_max = 17
         cost_per_level = np.ones(1)
         initial_cost_prop_max_budget = 1
     elif problem_name=="MC2":
@@ -178,7 +178,7 @@ def main(problem_name, dimension, dataroot, trial_start, trial_end, true_solutio
         assert isinstance(dimension,int)
         num_levels = 1
         m_min = 4
-        m_max = 15
+        m_max = 17
         cost_per_level = np.ones(1)
         initial_cost_prop_max_budget = 1
     elif "Genz" in problem_name:
@@ -199,7 +199,7 @@ def main(problem_name, dimension, dataroot, trial_start, trial_end, true_solutio
             raise Exception("invalid Genz function %s"%problem_name)
         num_levels = 1
         m_min = 4
-        m_max = 15
+        m_max = 17
         cost_per_level = np.ones(1)
         initial_cost_prop_max_budget = 1
     else:
