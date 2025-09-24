@@ -95,30 +95,30 @@ class GPSampleAllocationProblemSolver(AbstractSampleAllocationProblemSolver):
         remaining_budget = stopping_criterion.max_budget - np.sum(costs)
         feasible = False
         for l in (-costs).argsort():
-            if costs[l]>remaining_budget: continue
+            if costs[l]>remaining_budget: continue # don't consider levels where doubling the sample size would put us over budget
             accl = accumulators[l]
-            # don't consider levels where doubling the sample size would put us over budget
-            if not feasible:
-                # this is the first level we have seen where doubling the sample size stays under budget
+            vcurr = accl._fgp.post_cubature_var().cpu().item()
+            v2 = accl._fgp.post_cubature_var(n=int(2*n[l])).cpu().item()
+            next_decrease = max(0,vcurr-v2)
+            if not feasible: # this is the first level we have seen where doubling the sample size stays under budget
                 feasible = True
-                best_decrease = max(0,(accl._fgp.post_cubature_var()-accl._fgp.post_cubature_var(n=int(2*n[l]))).cpu().item())
-                l_best,cl_best = l,costs[l]
+                best_decrease = next_decrease
+                l_best = l
                 continue
-            nl_try,cpsl = n[l],cost_per_sample[l]
-            nl_tried = [nl_try]
-            pcvars_tried = [accl._fgp.post_cubature_var(n=int(nl_try)).cpu().item()]
-            while (2*nl_try-n[l])*cpsl<=cl_best:
-                nl_try *= 2
-                nl_tried += [nl_try]
-                pcvars_tried += [accl._fgp.post_cubature_var(n=int(nl_try)).cpu().item()]
-            nl_tried,pcvars_tried = np.hstack(nl_tried),np.hstack(pcvars_tried)
-            slope,intercept = np.polyfit(np.log(nl_tried[-2:]),np.log(pcvars_tried[-2:]),1) # assume pcvar = e**intercept*n**slope
-            nlstar = cl_best/cpsl+n[l] # solves cpsl*(nlstar-n[l]) = cl_best
-            candidate_pcvar = np.exp(intercept)*nlstar**slope
-            candidate_decrease = max(0,(pcvars_tried[0]-candidate_pcvar).item())
-            if candidate_decrease>best_decrease:
-                best_decrease = max(0,(pcvars_tried[0]-pcvars_tried[1]).item())
-                l_best,cl_best = l,costs[l]
+            if costs[l]==costs[l_best]:
+                candidate_decrease = next_decrease
+            else:
+                nhat = costs[l_best]/cost_per_sample[l]+n[l]
+                p = int(np.floor(np.log2(nhat)))
+                log2vp = np.log2(accl._fgp.post_cubature_var(n=int(2**p)).cpu().item())
+                log2vp1 = np.log2(accl._fgp.post_cubature_var(n=int(2**(p+1))).cpu().item())
+                log2a = (p+1)*log2vp-p*log2vp1
+                b = log2vp1-log2vp
+                vnext = 2**(log2a+b*np.log2(nhat)).item()
+                candidate_decrease = max(0,vcurr-vnext)
+            if candidate_decrease>=best_decrease:
+                best_decrease = next_decrease
+                l_best = l
         if not feasible:
             raise StopIteration
         pass
