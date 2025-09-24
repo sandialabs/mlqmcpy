@@ -119,8 +119,8 @@ def main(problem_name, dimension, dataroot, trial_start, trial_end, true_solutio
         assert dimension is None 
         dimension = problem.d
         num_levels = problem.levels
-        m_min = 7
-        m_max = 12
+        m_min = 3
+        m_max = 13
         cost_per_level = problem.adjusted_costs
         initial_cost_prop_max_budget = 1/4
     elif problem_name == "Slope Stability":
@@ -273,7 +273,7 @@ def main(problem_name, dimension, dataroot, trial_start, trial_end, true_solutio
         ##       DNET
         # (r"GPQMC Net Adaptive  ",mp.GaussianProcessMLQMCIterator,{"discrete_distribution_type":qp.DigitalNetB2,"kwargs_discrete_distrib_construct":{"alpha":1,**kwargs_discrete_distrib_construct},"fast":True,"kwargs_fastgp_construct":kwargs_fastgp_construct,"kwargs_kernel_construct":kwargs_kernel_construct,"kwargs_fastgp_fit":kwargs_fastgp_fit,"refit_gps":refit_igps,"kernel_class":qp.KernelDigShiftInvarAdaptiveAlpha},None),
         # (r"GPQMC Net $\alpha=1$",mp.GaussianProcessMLQMCIterator,{"discrete_distribution_type":qp.DigitalNetB2,"kwargs_discrete_distrib_construct":{"alpha":1,**kwargs_discrete_distrib_construct},"fast":True,"kwargs_fastgp_construct":kwargs_fastgp_construct,"kwargs_kernel_construct":{"alpha":1,**kwargs_kernel_construct},"kwargs_fastgp_fit":kwargs_fastgp_fit,"refit_gps":refit_igps},None),
-        # (r"GPQMC Net $\alpha=2$",mp.GaussianProcessMLQMCIterator,{"discrete_distribution_type":qp.DigitalNetB2,"kwargs_discrete_distrib_construct":{"alpha":1,**kwargs_discrete_distrib_construct},"fast":True,"kwargs_fastgp_construct":kwargs_fastgp_construct,"kwargs_kernel_construct":{"alpha":2,**kwargs_kernel_construct},"kwargs_fastgp_fit":kwargs_fastgp_fit,"refit_gps":refit_igps},None),
+        # (r"GPQMC Net           ",mp.GaussianProcessMLQMCIterator,{"discrete_distribution_type":qp.DigitalNetB2,"kwargs_discrete_distrib_construct":{"alpha":1,**kwargs_discrete_distrib_construct},"fast":True,"kwargs_fastgp_construct":kwargs_fastgp_construct,"kwargs_kernel_construct":{"alpha":2,**kwargs_kernel_construct},"kwargs_fastgp_fit":kwargs_fastgp_fit,"refit_gps":refit_igps},None),
         # (r"GPQMC Net $\alpha=3$",mp.GaussianProcessMLQMCIterator,{"discrete_distribution_type":qp.DigitalNetB2,"kwargs_discrete_distrib_construct":{"alpha":1,**kwargs_discrete_distrib_construct},"fast":True,"kwargs_fastgp_construct":kwargs_fastgp_construct,"kwargs_kernel_construct":{"alpha":3,**kwargs_kernel_construct},"kwargs_fastgp_fit":kwargs_fastgp_fit,"refit_gps":refit_igps},None),
         # (r"GPQMC Net $\alpha=4$",mp.GaussianProcessMLQMCIterator,{"discrete_distribution_type":qp.DigitalNetB2,"kwargs_discrete_distrib_construct":{"alpha":1,**kwargs_discrete_distrib_construct},"fast":True,"kwargs_fastgp_construct":kwargs_fastgp_construct,"kwargs_kernel_construct":{"alpha":4,**kwargs_kernel_construct},"kwargs_fastgp_fit":kwargs_fastgp_fit,"refit_gps":refit_igps},None),
         (r"GPQMC Net           ",mp.GaussianProcessMLQMCIterator,{"discrete_distribution_type":qp.DigitalNetB2,"kwargs_discrete_distrib_construct":{"alpha":1,**kwargs_discrete_distrib_construct},"fast":True,"kwargs_fastgp_construct":kwargs_fastgp_construct,"kwargs_kernel_construct":kwargs_kernel_construct,"kwargs_fastgp_fit":kwargs_fastgp_fit,"refit_gps":refit_igps,"kernel_class":qp.KernelDigShiftInvarCombined},None),

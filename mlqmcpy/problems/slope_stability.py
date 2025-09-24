@@ -1,4 +1,3 @@
-import pyslope
 import contextlib
 import numpy as np
 import qmcpy as qp 
@@ -53,6 +52,7 @@ class SlopeStability:
         
     
     def __call__(self, level, samples=None):
+        import pyslope
         samples = np.atleast_1d(samples)
         assert samples.shape[-1]==1 
         input1d = samples.ndim==1 
