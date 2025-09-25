@@ -118,6 +118,7 @@ class DarcyFlow2d(object):
         f_thin = self.thin(level,f)
         return u_thin,f_thin
     def draw_u_f(self, level=-1, shape=2):
+        import torch 
         if isinstance(shape,int): shape=[shape]
         unifs = torch.rand(list(shape)+[self.d],device=self.device)
         u_thin,f_thin = self.transform(level,unifs)
@@ -322,7 +323,7 @@ class DarcyFlow2d(object):
         subplot_kw = {'projection':'3d'} if surface else {}
         fig,ax = pyplot.subplots(nrows=nrows,ncols=ncols,figsize=(6*ncols,6*nrows),subplot_kw=subplot_kw)
         ax = np.atleast_1d(ax).reshape((nrows,ncols))
-        nlist =(self.ns-1).tolist()
+        nlist = (self.ns-1).tolist()
         for i in range(nrows):
             for j in range(ncols):
                 xij = x[i][j] if isinstance(x[i][j],np.ndarray) else x[i][j].cpu().numpy()
