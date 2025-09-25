@@ -4,6 +4,23 @@ import qmcpy as qp
 import types 
 
 class DarcyFlow2d(object):
+    """
+    >>> import torch 
+    >>> torch.set_default_dtype(torch.float64)
+    >>> rng = np.random.Generator(np.random.PCG64(7))
+    >>> qmean = 0
+    >>> df = DarcyFlow2d()
+    >>> for l in range(3):
+    ...     x = rng.uniform(size=(2**9,df.d))
+    ...     y = df.ml(level=l,samples=x)
+    ...     ymean_l = y.mean()
+    ...     ystd_l = y.std(ddof=1)
+    ...     qmean += ymean_l
+    ...     print("Qmean[l] = %-10.3f Ymean[l] = %-15.3e Ystd[l] = %.3e"%(qmean,ymean_l,ystd_l))
+    Qmean[l] = 0.041      Ymean[l] = 4.105e-02       Ystd[l] = 7.782e-02
+    Qmean[l] = 0.042      Ymean[l] = 8.549e-04       Ystd[l] = 6.738e-03
+    Qmean[l] = 0.042      Ymean[l] = 3.260e-04       Ystd[l] = 1.940e-03
+    """
     def __init__(self, 
             levels = None,
             n_coarsest = None,
@@ -348,23 +365,23 @@ if __name__=="__main__":
     nplt = 8
     x = np.random.rand(n,df.d)
     us = [[None]*df.levels for i in range(n)]
-    ys = [[None]*df.levels for i in range(n)]
+    qs = [[None]*df.levels for i in range(n)]
     u,f = df.draw_u_f(level=-1,shape=n)
     us = [df.thin(l,u) for l in range(df.levels)]
     fs = [df.thin(l,f) for l in range(df.levels)]
-    ys = [None]*df.levels
+    qs = [None]*df.levels
     for l in range(df.levels):
         u_l = us[l]
         print("u_l.shape = %s"%str(tuple(u_l.shape)))
         f_l = fs[l]
         print("f_l.shape = %s"%str(tuple(f_l.shape)))
-        y_l = df.evaluate_from_u_f(level=l,u=u_l,f=f_l,pde_solve_kwargs={"verbose":True})
-        print("y_l.shape = %s"%str(tuple(y_l.shape)))
-        ys[l] = y_l
+        q_l = df.evaluate_from_u_f(level=l,u=u_l,f=f_l,pde_solve_kwargs={"verbose":True})
+        print("q_l.shape = %s"%str(tuple(q_l.shape)))
+        qs[l] = q_l
         print()
     df.plot_contour_grid([[fs[l][i] for l in range(df.levels)] for i in range(nplt)],figpath="darcy_f.png")
     df.plot_contour_grid([[us[l][i][0] for l in range(df.levels)] for i in range(nplt)],figpath="darcy_u.png")
-    df.plot_contour_grid([[ys[l][i] for l in range(df.levels)] for i in range(nplt)],figpath="darcy_y.png")
+    df.plot_contour_grid([[qs[l][i] for l in range(df.levels)] for i in range(nplt)],figpath="darcy_y.png")
     """ MLQMC TESTING """ 
     qhat_prev = 0
     n = [2**19,2**18,2**13]

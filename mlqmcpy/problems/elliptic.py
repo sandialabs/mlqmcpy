@@ -97,5 +97,21 @@ def solve_elliptic_pde(level=5, coeffs=None):
 # Define wrapper function
 @multilevel
 def elliptic(level, sample):
-    """Wrapper that just returns the quantity of interest."""
+    """
+    Wrapper that just returns the quantity of interest.
+    
+    >>> rng = np.random.Generator(np.random.PCG64(7))
+    >>> qmean = 0
+    >>> for l in range(4):
+    ...     x = rng.uniform(size=(2**12,4*2**l))
+    ...     y = elliptic.ml(level=l,sample=x)
+    ...     ymean_l = y.mean()
+    ...     ystd_l = y.std(ddof=1)
+    ...     qmean += ymean_l
+    ...     print("Qmean[l] = %-10.3f Ymean[l] = %-15.3e Ystd[l] = %.3e"%(qmean,ymean_l,ystd_l))
+    Qmean[l] = 0.155      Ymean[l] = 1.553e-01       Ystd[l] = 1.359e-01
+    Qmean[l] = 0.144      Ymean[l] = -1.132e-02      Ystd[l] = 6.025e-02
+    Qmean[l] = 0.145      Ymean[l] = 1.555e-03       Ystd[l] = 1.921e-02
+    Qmean[l] = 0.148      Ymean[l] = 3.009e-03       Ystd[l] = 7.383e-03
+    """
     return solve_elliptic_pde(level, sample)[0]
