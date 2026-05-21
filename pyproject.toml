@@ -28,9 +28,9 @@ dependencies = [
 dynamic = ["version"]
 
 [project.urls]
-Homepage = "https://github.com/PieterjanRobbe/mlqmcpy"
-Repository = "https://github.com/PieterjanRobbe/mlqmcpy"
-Issues = "https://github.com/PieterjanRobbe/mlqmcpy/issues"
+Homepage = "https://github.com/sandialabs/mlqmcpy"
+Repository = "https://github.com/sandialabs/mlqmcpy"
+Issues = "https://github.com/sandialabs/mlqmcpy/issues"
 
 [dependency-groups]
 dev = [
