@@ -1,4 +1,4 @@
-[![Tests](https://github.com/PieterjanRobbe/mlqmcpy/actions/workflows/tests.yml/badge.svg)](https://github.com/PieterjanRobbe/mlqmcpy/actions/workflows/tests.yml)
+[![Tests](https://github.com/sandialabs/mlqmcpy/actions/workflows/tests.yml/badge.svg)](https://github.com/sandialabs/mlqmcpy/actions/workflows/tests.yml)
 
 # mlqmcpy
 

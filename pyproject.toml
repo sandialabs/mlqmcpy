@@ -35,7 +35,7 @@ Issues = "https://github.com/PieterjanRobbe/mlqmcpy/issues"
 [dependency-groups]
 dev = [
     "black>=25.1.0",
-    "isort>=6.0.0",
+    "isort==8.0.1",
     "ruff>=0.9.6",
     "pre-commit>=4.1.0",
     "pytest>=8.3.5",
@@ -73,3 +73,5 @@ select = ["E9", "F63", "F7", "F82"]
 
 [tool.isort]
 profile = "black"
+known_first_party = ["mlqmcpy"]
+src_paths = ["mlqmcpy", "tests"]
