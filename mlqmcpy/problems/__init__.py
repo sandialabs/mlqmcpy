@@ -1,10 +1,19 @@
 from .analytic import analytic
-from .elliptic import elliptic
 from .asian_option import asian_option
 from .borehole import borehole
 from .dakota.steady_state_diffusion_1d import steady_state_diffusion_1d
-from .financial_options import MLFinancialOption
 from .darcy_flow_2d import DarcyFlow2d
-from .test_funcs import Sumxex,MC2,RidgeJump,RidgePL,RidgeKink,RidgeFinance,RidgeSmooth,RidgeJSU
+from .elliptic import elliptic
+from .financial_options import MLFinancialOption
 from .genz import Genz
 from .slope_stability import SlopeStability
+from .test_funcs import (
+    MC2,
+    RidgeFinance,
+    RidgeJSU,
+    RidgeJump,
+    RidgeKink,
+    RidgePL,
+    RidgeSmooth,
+    Sumxex,
+)

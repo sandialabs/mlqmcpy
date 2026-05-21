@@ -53,70 +53,85 @@ class GreedySampleAllocationProblemSolver(AbstractSampleAllocationProblemSolver)
         #         for accumulator in accumulators
         #     ])
 
-        levels,sses,costs,n,ntotal = np.array([
-                [l, accumulator.squared_standard_error, accumulator.cost, accumulator.num_samples, len(accumulator)]
-                for l,accumulator in enumerate(accumulators)
+        levels, sses, costs, n, ntotal = np.array(
+            [
+                [
+                    l,
+                    accumulator.squared_standard_error,
+                    accumulator.cost,
+                    accumulator.num_samples,
+                    len(accumulator),
+                ]
+                for l, accumulator in enumerate(accumulators)
             ]
         ).T
 
-        levels = levels.astype(int) 
-        n = n.astype(int) 
-        ntotal = ntotal.astype(int) 
+        levels = levels.astype(int)
+        n = n.astype(int)
+        ntotal = ntotal.astype(int)
 
         current_costs = costs * ntotal
-        ratios = sses/current_costs
+        ratios = sses / current_costs
 
         if isinstance(stopping_criterion, BudgetConstrained):
             total_current_cost = np.sum(current_costs)
             remaining_budget = stopping_criterion.max_budget - total_current_cost
-            feasible = current_costs <= remaining_budget # the current cost is also the next cost as we double the sample size on each level                                       
+            feasible = (
+                current_costs <= remaining_budget
+            )  # the current cost is also the next cost as we double the sample size on each level
             if not np.any(feasible):
                 raise StopIteration
             ratios = ratios[feasible]
-            levels = levels[feasible] 
+            levels = levels[feasible]
             n = n[feasible]
-                                           
+
         idx = np.argmax(ratios)
 
-        new_sample_sizes = {
-            int(levels[idx]): int(n[idx])
-        }
+        new_sample_sizes = {int(levels[idx]): int(n[idx])}
         return new_sample_sizes
-    
+
+
 class GPSampleAllocationProblemSolver(AbstractSampleAllocationProblemSolver):
     """
     Allocate to the level with the greatest decrease in standard error per unit cost
     """
-    
+
     def _step(self, accumulators, stopping_criterion):
-        n = np.array([accumulator.num_samples for accumulator in accumulators]).astype(int)
+        n = np.array([accumulator.num_samples for accumulator in accumulators]).astype(
+            int
+        )
         cost_per_sample = np.array([accumulator.cost for accumulator in accumulators])
-        costs = n*cost_per_sample
+        costs = n * cost_per_sample
         remaining_budget = stopping_criterion.max_budget - np.sum(costs)
         feasible = False
         for l in (-costs).argsort():
-            if costs[l]>remaining_budget: continue # don't consider levels where doubling the sample size would put us over budget
+            if costs[l] > remaining_budget:
+                continue  # don't consider levels where doubling the sample size would put us over budget
             accl = accumulators[l]
             vcurr = accl._fgp.post_cubature_var().cpu().item()
-            v2 = accl._fgp.post_cubature_var(n=int(2*n[l])).cpu().item()
-            next_decrease = max(0,vcurr-v2)
-            if not feasible: # this is the first level we have seen where doubling the sample size stays under budget
+            v2 = accl._fgp.post_cubature_var(n=int(2 * n[l])).cpu().item()
+            next_decrease = max(0, vcurr - v2)
+            if (
+                not feasible
+            ):  # this is the first level we have seen where doubling the sample size stays under budget
                 feasible = True
                 best_decrease = next_decrease
                 l_best = l
                 continue
-            if costs[l]==costs[l_best]:
+            if costs[l] == costs[l_best]:
                 candidate_decrease = next_decrease
             else:
-                nhat = costs[l_best]/cost_per_sample[l]+n[l]
+                nhat = costs[l_best] / cost_per_sample[l] + n[l]
                 p = int(np.floor(np.log2(nhat)))
                 log2vp = np.log2(accl._fgp.post_cubature_var(n=int(2**p)).cpu().item())
-                log2vp1 = np.log2(accl._fgp.post_cubature_var(n=int(2**(p+1))).cpu().item())
-                log2a = (p+1)*log2vp-p*log2vp1
-                b = log2vp1-log2vp
-                vnext = 2**(log2a+b*np.log2(nhat)).item()
-                candidate_decrease = max(0,vcurr-vnext)
-            if candidate_decrease>=best_decrease:
+                log2vp1 = np.log2(
+                    accl._fgp.post_cubature_var(n=int(2 ** (p + 1))).cpu().item()
+                )
+                log2a = (p + 1) * log2vp - p * log2vp1
+                b = log2vp1 - log2vp
+                vnext = 2 ** (log2a + b * np.log2(nhat)).item()
+                candidate_decrease = max(0, vcurr - vnext)
+            if candidate_decrease >= best_decrease:
                 best_decrease = next_decrease
                 l_best = l
         if not feasible:
@@ -124,7 +139,6 @@ class GPSampleAllocationProblemSolver(AbstractSampleAllocationProblemSolver):
         pass
         new_sample_sizes = {int(l_best): int(n[l_best])}
         return new_sample_sizes
-
 
 
 class AnalyticSampleAllocationProblemSolver(AbstractSampleAllocationProblemSolver):

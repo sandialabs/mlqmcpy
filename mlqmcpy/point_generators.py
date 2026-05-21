@@ -63,4 +63,6 @@ class FastGaussianProcessPointGenerator(AbstractPointGenerator):
         self.fgp = fgp
 
     def _generate(self, n: int):
-        return self.fgp.get_x_next(self.n + n).cpu().numpy()  # FastGP needs total number of points
+        return (
+            self.fgp.get_x_next(self.n + n).cpu().numpy()
+        )  # FastGP needs total number of points

@@ -1,17 +1,19 @@
-import qmcpy as qp 
-import numpy as np 
-import scipy.linalg
+import json
+import os
 import types
-import json 
-import os 
+
+import numpy as np
+import qmcpy as qp
+import scipy.linalg
+
 
 class MLFinancialOption(object):
-    """"
-    Multilevel Financial Option 
-    
+    """ "
+    Multilevel Financial Option
+
     >>> rng = np.random.Generator(np.random.PCG64(7))
     >>> mlopts = MLFinancialOption()
-    >>> mlopts.ds 
+    >>> mlopts.ds
     array([   8,   16,   32,   64,  128,  256,  512, 1024])
     >>> l = 3
     >>> x = rng.uniform(size=(5,mlopts.ds[l]))
@@ -157,81 +159,100 @@ class MLFinancialOption(object):
      [3.4e+02 8.5e-11 2.5e-10 1.7e+00 -2.3e-14 -2.3e-14 3.7e+01 9.5e-15]
      [2.8e+02 8.2e+00 9.8e-14 6.0e-10 9.3e-14 2.1e-14 9.5e-15 1.5e+02]]
     """
-    
+
     def __init__(
-            self,
-            levels = 8,
-            qmcpy_financial_option_args = "ASIAN",
-            weights = "TELESCOPING", 
-            d_coarsest = 8,
-            ):
-        if weights=="TELESCOPING":
+        self,
+        levels=8,
+        qmcpy_financial_option_args="ASIAN",
+        weights="TELESCOPING",
+        d_coarsest=8,
+    ):
+        if weights == "TELESCOPING":
             self.mmat = np.eye(levels)
-            self.mmat[np.arange(1,levels),np.arange(levels-1)] = -1
-        elif weights=="INDEPENDENT":
-            assert isinstance(qmcpy_financial_option_args,str)
+            self.mmat[np.arange(1, levels), np.arange(levels - 1)] = -1
+        elif weights == "INDEPENDENT":
+            assert isinstance(qmcpy_financial_option_args, str)
         else:
-            raise Exception("invalid weights = %s"%weights)
-        if isinstance(qmcpy_financial_option_args,str):
-            datadir = os.path.dirname(os.path.realpath(__file__))+"/fo_data"
-            if weights=="INDEPENDENT":
-                data = np.load(datadir+"/%s.mmat.npy"%qmcpy_financial_option_args,allow_pickle=True)[()]
+            raise Exception("invalid weights = %s" % weights)
+        if isinstance(qmcpy_financial_option_args, str):
+            datadir = os.path.dirname(os.path.realpath(__file__)) + "/fo_data"
+            if weights == "INDEPENDENT":
+                data = np.load(
+                    datadir + "/%s.mmat.npy" % qmcpy_financial_option_args,
+                    allow_pickle=True,
+                )[()]
                 self.mmat = data["mmat"]
-            with open(datadir+"/financial_options_settings.json","r") as file:
+            with open(datadir + "/financial_options_settings.json", "r") as file:
                 kwargs = json.load(file)
             qmcpy_financial_option_args = kwargs[qmcpy_financial_option_args.upper()]
         self.weights = weights
         self.levels = levels
-        self.ds = d_coarsest*2**np.arange(levels)
-        self.options = [qp.FinancialOption(qp.IIDStdUniform(d),**qmcpy_financial_option_args) for d in self.ds]
+        self.ds = d_coarsest * 2 ** np.arange(levels)
+        self.options = [
+            qp.FinancialOption(qp.IIDStdUniform(d), **qmcpy_financial_option_args)
+            for d in self.ds
+        ]
         self.exact = types.SimpleNamespace()
         self.exact.Q = types.SimpleNamespace()
         self.exact.Y = types.SimpleNamespace()
         try:
             self.exact_value_inf_dim = self.options[-1].get_exact_value_inf_dim()
         except:
-            pass 
+            pass
         try:
-            self.exact_values = np.array([self.options[l].get_exact_value() for l in range(self.levels)],dtype=float)
-            self.exact_diffs = np.hstack([self.exact_values[[0]],self.exact_values[1:]-self.exact_values[:-1]])
-            self.exact.Q.mean = lambda level: self.exact_value_inf_dim if level==np.inf else self.exact_values[level]
+            self.exact_values = np.array(
+                [self.options[l].get_exact_value() for l in range(self.levels)],
+                dtype=float,
+            )
+            self.exact_diffs = np.hstack(
+                [self.exact_values[[0]], self.exact_values[1:] - self.exact_values[:-1]]
+            )
+            self.exact.Q.mean = lambda level: (
+                self.exact_value_inf_dim
+                if level == np.inf
+                else self.exact_values[level]
+            )
             self.exact.Y.mean = lambda level: self.exact_diffs[level]
         except:
             pass
-    
+
     def evaluate(self, level, samples=None):
         if samples is None:
             samples = np.random.rand(self.ds[level])
-        ogdim = samples.ndim 
+        ogdim = samples.ndim
         samples = np.atleast_2d(samples)
         t = self.options[level].true_measure._transform(samples)
-        ys = [None]*(level+1)
-        for l in range(level+1):
-            t_l = t[:,::-2**(level-l)][...,::-1]
+        ys = [None] * (level + 1)
+        for l in range(level + 1):
+            t_l = t[:, :: -(2 ** (level - l))][..., ::-1]
             ys[l] = self.options[l].g(t_l)
-        y = np.stack(ys,axis=-1)
-        if ogdim==1:
+        y = np.stack(ys, axis=-1)
+        if ogdim == 1:
             y = y[0]
         return y
-    
+
     def __call__(self, level, samples=None):
-        ys = self.evaluate(level,samples)
-        y = ys[...,-1]
+        ys = self.evaluate(level, samples)
+        y = ys[..., -1]
         return y
 
     def ml(self, level, samples):
-        y = self.evaluate(level,samples)
-        z = (self.mmat[level,:(level+1)]*y).sum(-1)
+        y = self.evaluate(level, samples)
+        z = (self.mmat[level, : (level + 1)] * y).sum(-1)
         return z
 
-if __name__=="__main__":
+
+if __name__ == "__main__":
     qmcpy_financial_option_args = "BARRIER"
     fo = MLFinancialOption(qmcpy_financial_option_args=qmcpy_financial_option_args)
-    x = qp.DigitalNet(fo.ds[-1],seed=7)(2**10) 
-    y = fo.evaluate(level=fo.levels-1,samples=x)
-    cmat = y.T@y+1e-8*np.eye(y.shape[1])
-    lchol = scipy.linalg.cholesky(cmat,lower=True) 
-    lcholinv = scipy.linalg.solve_triangular(lchol,np.eye(lchol.shape[1]),lower=True)
-    mmat = lchol[-1,:,None]*lcholinv
-    np.save(os.path.dirname(os.path.abspath(__file__))+"/fo_data/%s.mmat.npy"%qmcpy_financial_option_args,{"mmat":mmat})
-
+    x = qp.DigitalNet(fo.ds[-1], seed=7)(2**10)
+    y = fo.evaluate(level=fo.levels - 1, samples=x)
+    cmat = y.T @ y + 1e-8 * np.eye(y.shape[1])
+    lchol = scipy.linalg.cholesky(cmat, lower=True)
+    lcholinv = scipy.linalg.solve_triangular(lchol, np.eye(lchol.shape[1]), lower=True)
+    mmat = lchol[-1, :, None] * lcholinv
+    np.save(
+        os.path.dirname(os.path.abspath(__file__))
+        + "/fo_data/%s.mmat.npy" % qmcpy_financial_option_args,
+        {"mmat": mmat},
+    )

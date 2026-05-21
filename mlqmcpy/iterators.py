@@ -1,4 +1,5 @@
 from abc import ABC
+from copy import deepcopy
 
 import numpy as np
 from prettytable import PrettyTable
@@ -11,7 +12,7 @@ from .factories import (
     GreedyMLQMCFactory,
 )
 from .stopping_criteria import AccuracyConstrained, BudgetConstrained
-from copy import deepcopy
+
 
 class AbstractMultilevelIterator(ABC):
     """
@@ -283,7 +284,9 @@ class GaussianProcessMLQMCIterator(AbstractMultilevelIterator):
             kwargs_fastgp_construct = {}
 
         if "kwargs_discrete_distrib_construct" in kwargs:
-            kwargs_discrete_distrib_construct = kwargs["kwargs_discrete_distrib_construct"]
+            kwargs_discrete_distrib_construct = kwargs[
+                "kwargs_discrete_distrib_construct"
+            ]
             del kwargs["kwargs_discrete_distrib_construct"]
         else:
             kwargs_discrete_distrib_construct = {}
@@ -293,7 +296,7 @@ class GaussianProcessMLQMCIterator(AbstractMultilevelIterator):
             del kwargs["kernel_class"]
         else:
             kernel_class = None
-        
+
         if "kwargs_kernel_construct" in kwargs:
             kwargs_kernel_construct = kwargs["kwargs_kernel_construct"]
             del kwargs["kwargs_kernel_construct"]
@@ -323,7 +326,7 @@ class GaussianProcessMLQMCIterator(AbstractMultilevelIterator):
                 raise ValueError(f"Invalid keyword argument provided: '{key}'")
 
         factory = GaussianProcessMLQMCFactory(
-            scheme = scheme,
+            scheme=scheme,
             kwargs_fastgp_construct=kwargs_fastgp_construct,
             kwargs_discrete_distrib_construct=kwargs_discrete_distrib_construct,
             kernel_class=kernel_class,
@@ -353,10 +356,10 @@ class AbstractMultiTaskGaussianProcessMLQMCIterator(AbstractMultilevelIterator):
         # budget_scheme = "full",
         budget_scheme="greedy",
         kwargs_fastgp_construct={},
-        kwargs_discrete_distrib_construct = {},
-        kernel_class = None,
-        kwargs_kernel_construct = {},
-        kwargs_kernel_mt_construct = {},
+        kwargs_discrete_distrib_construct={},
+        kernel_class=None,
+        kwargs_kernel_construct={},
+        kwargs_kernel_mt_construct={},
         kwargs_fastgp_fit={},
         fast=True,
         refit_gps=True,
@@ -403,23 +406,40 @@ class AbstractMultiTaskGaussianProcessMLQMCIterator(AbstractMultilevelIterator):
             KernelClass = qp.KernelShiftInvar if kernel_class is None else kernel_class
         elif fast and discrete_distribution_type == qp.DigitalNetB2:
             GPClass = fastgps.FastGPDigitalNetB2
-            KernelClass = qp.KernelDigShiftInvar if kernel_class is None else kernel_class
+            KernelClass = (
+                qp.KernelDigShiftInvar if kernel_class is None else kernel_class
+            )
             if "randomize" not in kwargs_discrete_distrib_construct:
-                kwargs_discrete_distrib_construct = deepcopy(kwargs_discrete_distrib_construct)
+                kwargs_discrete_distrib_construct = deepcopy(
+                    kwargs_discrete_distrib_construct
+                )
                 kwargs_discrete_distrib_construct["randomize"] = "DS"
         else:
             GPClass = fastgps.StandardGP
-            KernelClass = qp.KernelSquaredExponential if kernel_class is None else kernel_class
+            KernelClass = (
+                qp.KernelSquaredExponential if kernel_class is None else kernel_class
+            )
 
         self.discrete_distribution_type = discrete_distribution_type
 
         import torch
+
         torch.set_default_dtype(torch.float64)
 
-        discrete_distribs = np.array([discrete_distribution_type(dimension,seed=seed,**kwargs_discrete_distrib_construct) for seed in np.random.SeedSequence(seed).spawn(self._num_levels)],dtype=object)
-        kernel = KernelClass(d=dimension,torchify=True,**kwargs_kernel_construct)
-        kernel_mt = qp.KernelMultiTask(kernel,num_tasks=self._num_levels,**kwargs_kernel_mt_construct)
-        self.fgp = GPClass(kernel_mt,discrete_distribs,**kwargs_fastgp_construct)
+        discrete_distribs = np.array(
+            [
+                discrete_distribution_type(
+                    dimension, seed=seed, **kwargs_discrete_distrib_construct
+                )
+                for seed in np.random.SeedSequence(seed).spawn(self._num_levels)
+            ],
+            dtype=object,
+        )
+        kernel = KernelClass(d=dimension, torchify=True, **kwargs_kernel_construct)
+        kernel_mt = qp.KernelMultiTask(
+            kernel, num_tasks=self._num_levels, **kwargs_kernel_mt_construct
+        )
+        self.fgp = GPClass(kernel_mt, discrete_distribs, **kwargs_fastgp_construct)
 
         self.refit_gps = refit_gps
 
@@ -472,12 +492,17 @@ class AbstractMultiTaskGaussianProcessMLQMCIterator(AbstractMultilevelIterator):
         mf_comb_cheap_boundary = mf_comb_cheap[boundary]
         nf_comb_cheap_boundary = 2**mf_comb_cheap_boundary
 
-        pcvars = np.array([self.projected_post_cubature_var(nf_comb_cheap_boundary[i]) for i in range(len(nf_comb_cheap_boundary))])
+        pcvars = np.array(
+            [
+                self.projected_post_cubature_var(nf_comb_cheap_boundary[i])
+                for i in range(len(nf_comb_cheap_boundary))
+            ]
+        )
         imin = pcvars.argmin()
         # pcvar_min = pcvars[imin]
         n = nf_comb_cheap_boundary[imin]
         return n
-    
+
     def __next__(self):
         """Generate new samples at each level; stop if converged."""
 
@@ -534,9 +559,20 @@ class AbstractMultiTaskGaussianProcessMLQMCIterator(AbstractMultilevelIterator):
             self.fgp.fit(**self.kwargs_fastgp_fit)
         self.post_cubature_means = self.fgp.post_cubature_mean().numpy()
         self.post_cubature_cov = self.fgp.post_cubature_cov().numpy()
-        self.optimal_weights = (self.weights*self.post_cubature_means).sum()*np.linalg.lstsq(self.post_cubature_cov+self.post_cubature_means[:,None]*self.post_cubature_means[None,:],self.post_cubature_means)[0]
-        self.optimal_mean_pred = (self.optimal_weights*self.post_cubature_means).sum()
-        self.optimal_standard_error = np.sqrt(max(self.optimal_weights@self.post_cubature_cov@self.optimal_weights,0))
+        self.optimal_weights = (
+            self.weights * self.post_cubature_means
+        ).sum() * np.linalg.lstsq(
+            self.post_cubature_cov
+            + self.post_cubature_means[:, None] * self.post_cubature_means[None, :],
+            self.post_cubature_means,
+        )[
+            0
+        ]
+        self.optimal_mean_pred = (self.optimal_weights * self.post_cubature_means).sum()
+        self.optimal_standard_error = np.sqrt(
+            max(self.optimal_weights @ self.post_cubature_cov @ self.optimal_weights, 0)
+        )
+
     @property
     def mean(self):
         """Return the total mean across levels."""
@@ -548,35 +584,46 @@ class AbstractMultiTaskGaussianProcessMLQMCIterator(AbstractMultilevelIterator):
         return self.optimal_standard_error
 
     def projected_post_cubature_var(self, n):
-        assert n.shape==(self.fgp.num_tasks,)
-        import torch 
-        projected_cov = self.fgp.post_cubature_cov(n=torch.from_numpy(n).to(self.fgp.device)).numpy()
-        optimal_projected_cov = self.optimal_weights@projected_cov@self.optimal_weights
+        assert n.shape == (self.fgp.num_tasks,)
+        import torch
+
+        projected_cov = self.fgp.post_cubature_cov(
+            n=torch.from_numpy(n).to(self.fgp.device)
+        ).numpy()
+        optimal_projected_cov = (
+            self.optimal_weights @ projected_cov @ self.optimal_weights
+        )
         return optimal_projected_cov
-    
+
     @property
     def cost(self):
         """Return the total cost across levels."""
         return (self.fgp.n.cpu().numpy() * self.cost_per_level).sum().item()
-    
+
     @property
     def total_samples_per_level(self):
         return self.fgp.n.numpy().astype(int)
-    
+
     def print_status(self):
         """Print status summary in a table format."""
         table = PrettyTable()
         table.field_names = ["number of samples", "mean", "variance", "standard error"]
-        print("\t number of samples: %s"%self.total_samples_per_level)
-        print("\t              mean: %s"%self.mean)
-        print("\t    standard error: %s"%self.standard_error)
+        print("\t number of samples: %s" % self.total_samples_per_level)
+        print("\t              mean: %s" % self.mean)
+        print("\t    standard error: %s" % self.standard_error)
 
-class MultiTaskGaussianProcessMLQMCIteratorFunction(AbstractMultiTaskGaussianProcessMLQMCIterator):
-    
+
+class MultiTaskGaussianProcessMLQMCIteratorFunction(
+    AbstractMultiTaskGaussianProcessMLQMCIterator
+):
+
     def get_weights(self):
-        return (np.arange(1,self._num_levels+1)==self._num_levels).astype(float)
+        return (np.arange(1, self._num_levels + 1) == self._num_levels).astype(float)
 
-class MultiTaskGaussianProcessMLQMCIteratorDifference(AbstractMultiTaskGaussianProcessMLQMCIterator):
+
+class MultiTaskGaussianProcessMLQMCIteratorDifference(
+    AbstractMultiTaskGaussianProcessMLQMCIterator
+):
 
     def get_weights(self):
         return np.ones(self._num_levels)

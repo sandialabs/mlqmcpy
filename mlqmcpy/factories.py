@@ -15,9 +15,10 @@ from .point_generators import (
 )
 from .solvers import (
     AnalyticSampleAllocationProblemSolver,
-    GreedySampleAllocationProblemSolver,
     GPSampleAllocationProblemSolver,
+    GreedySampleAllocationProblemSolver,
 )
+
 
 class AbstractMultilevelFactory(ABC):
     """Abstract factory interface for creating multilevel MLMC components."""
@@ -106,8 +107,18 @@ class GreedyMLQMCFactory(AbstractMultilevelFactory):
 class GaussianProcessMLQMCFactory(AbstractMultilevelFactory):
     """Concrete factory for a Greedy MLQMC iterator using Fast GPs."""
 
-    def __init__(self, scheme, kwargs_fastgp_construct, kwargs_discrete_distrib_construct, kernel_class, kwargs_kernel_construct, kwargs_fastgp_fit, fast, refit_gps):
-        self.scheme = scheme 
+    def __init__(
+        self,
+        scheme,
+        kwargs_fastgp_construct,
+        kwargs_discrete_distrib_construct,
+        kernel_class,
+        kwargs_kernel_construct,
+        kwargs_fastgp_fit,
+        fast,
+        refit_gps,
+    ):
+        self.scheme = scheme
         self.fgp_list = []
         self.fgp_counter = 0
         self.kwargs_fastgp_construct = kwargs_fastgp_construct
@@ -120,7 +131,10 @@ class GaussianProcessMLQMCFactory(AbstractMultilevelFactory):
 
     def create_response_accumulator(self, cost: float, replications: int):
         accumulator = GaussianProcessResponseAccumulator(
-            self.fgp_list[self.fgp_counter], cost, self.kwargs_fastgp_fit, self.refit_gps
+            self.fgp_list[self.fgp_counter],
+            cost,
+            self.kwargs_fastgp_fit,
+            self.refit_gps,
         )
         self.fgp_counter += 1
         return accumulator
@@ -132,32 +146,49 @@ class GaussianProcessMLQMCFactory(AbstractMultilevelFactory):
         seed: int,
         replications: int,
     ):
-        import torch 
+        import torch
+
         torch.set_default_dtype(torch.float64)
 
-        if self.fast and discrete_distribution_type==qp.Lattice:
+        if self.fast and discrete_distribution_type == qp.Lattice:
             GPClass = fastgps.FastGPLattice
-            KernelClass = qp.KernelShiftInvar if self.kernel_class is None else self.kernel_class
-        elif self.fast and discrete_distribution_type==qp.DigitalNetB2:
+            KernelClass = (
+                qp.KernelShiftInvar if self.kernel_class is None else self.kernel_class
+            )
+        elif self.fast and discrete_distribution_type == qp.DigitalNetB2:
             GPClass = fastgps.FastGPDigitalNetB2
-            KernelClass = qp.KernelDigShiftInvar if self.kernel_class is None else self.kernel_class
+            KernelClass = (
+                qp.KernelDigShiftInvar
+                if self.kernel_class is None
+                else self.kernel_class
+            )
         else:
-            assert not self.fast, "GaussianProcessMLQMCIterator does not support fast=True when discrete_distribution_type not in [qp.Lattice, qp.DigitalNetB2]"
+            assert (
+                not self.fast
+            ), "GaussianProcessMLQMCIterator does not support fast=True when discrete_distribution_type not in [qp.Lattice, qp.DigitalNetB2]"
             GPClass = fastgps.StandardGP
-            KernelClass = qp.KernelSquaredExponential if self.kernel_class is None else self.kernel_class
-        
-        discrete_distrib = discrete_distribution_type(dimension=dimension,seed=seed,**self.kwargs_discrete_distrib_construct)
-        kernel = KernelClass(d=dimension,torchify=True,**self.kwargs_kernel_construct)
-        fgp = GPClass(kernel,discrete_distrib,**self.kwargs_fastgp_construct)
+            KernelClass = (
+                qp.KernelSquaredExponential
+                if self.kernel_class is None
+                else self.kernel_class
+            )
+
+        discrete_distrib = discrete_distribution_type(
+            dimension=dimension, seed=seed, **self.kwargs_discrete_distrib_construct
+        )
+        kernel = KernelClass(d=dimension, torchify=True, **self.kwargs_kernel_construct)
+        fgp = GPClass(kernel, discrete_distrib, **self.kwargs_fastgp_construct)
         self.fgp_list.append(fgp)
-        
+
         return FastGaussianProcessPointGenerator(self.fgp_list[-1])
 
     def create_sample_allocation_solver(self, initial_sample_size_list):
-        if self.scheme.upper()=="GREEDY":
+        if self.scheme.upper() == "GREEDY":
             return GreedySampleAllocationProblemSolver(initial_sample_size_list)
-        elif self.scheme.upper()=="GREEDY PROP":
+        elif self.scheme.upper() == "GREEDY PROP":
             return GPSampleAllocationProblemSolver(initial_sample_size_list)
         else:
-            raise Exception("invalid scheme %s, should be either 'GREEDY' or 'GREEDY PROP'"%self.scheme.upper())
-
+            raise Exception(
+                "invalid scheme %s, should be either 'GREEDY' or 'GREEDY PROP'"
+                % self.scheme.upper()
+            )

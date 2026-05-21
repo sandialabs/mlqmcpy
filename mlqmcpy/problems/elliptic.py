@@ -5,14 +5,20 @@ from scipy.stats import norm
 
 from .utils import multilevel
 
+
 def _spsolve(main_diag, upper_diag, lower_diag, b):
     N = main_diag.shape[-1]
-    assert main_diag.shape==(N,) and upper_diag.shape==(N-1,) and lower_diag.shape==(N-1,) and b.shape==(N,)
+    assert (
+        main_diag.shape == (N,)
+        and upper_diag.shape == (N - 1,)
+        and lower_diag.shape == (N - 1,)
+        and b.shape == (N,)
+    )
     # Sparse matrix
     A = diags(
         [main_diag, upper_diag, lower_diag],
         [0, 1, -1],
-        shape=[N,N],
+        shape=[N, N],
         format="csc",
     )
 
@@ -21,7 +27,9 @@ def _spsolve(main_diag, upper_diag, lower_diag, b):
 
     return u
 
-vec_spsolve = np.vectorize(_spsolve,signature="(n),(m),(m),(n)->(n)")
+
+vec_spsolve = np.vectorize(_spsolve, signature="(n),(m),(m),(n)->(n)")
+
 
 # Elliptic PDE example
 def solve_elliptic_pde(level=5, coeffs=None):
@@ -31,7 +39,7 @@ def solve_elliptic_pde(level=5, coeffs=None):
     >>> sol,x,a,u = solve_elliptic_pde(level=1,coeffs=coeffs)
     >>> sol
     array([0.0874314 , 0.09523068])
-    >>> x 
+    >>> x
     array([0.125, 0.25 , 0.375, 0.5  , 0.625, 0.75 , 0.875])
     >>> a
     array([[1.66918312, 3.25086801, 1.95703413, 1.38673674, 0.41874112,
@@ -67,39 +75,44 @@ def solve_elliptic_pde(level=5, coeffs=None):
 
     # Compute diffusion coefficient a(x)
     coeffs = np.random.rand(8) if coeffs is None else coeffs
-    assert isinstance(coeffs,np.ndarray)
+    assert isinstance(coeffs, np.ndarray)
     coeffs = norm.ppf(coeffs)  # Transform from uniform to iid Gaussian
 
     batch_shape = list(coeffs.shape)[:-1]
 
-    k = np.arange(1,coeffs.shape[-1]+1)
-    a_x = np.exp((coeffs[...,None] / k[:,None]  *np.sin(np.pi * k[:,None] * x)).sum(-2))
+    k = np.arange(1, coeffs.shape[-1] + 1)
+    a_x = np.exp(
+        (coeffs[..., None] / k[:, None] * np.sin(np.pi * k[:, None] * x)).sum(-2)
+    )
 
     # Compute a at half-grid points (needed for flux terms)
-    a_half = np.zeros(batch_shape+[N])
-    a_half[...,1:-1] = (a_x[...,:-1] + a_x[...,1:]) / 2  # Midpoint values for flux approximation
-    a_half[...,0] = a_x[...,0]  # At the first midpoint
-    a_half[...,-1] = a_x[...,-1]  # At the last midpoint
+    a_half = np.zeros(batch_shape + [N])
+    a_half[..., 1:-1] = (
+        a_x[..., :-1] + a_x[..., 1:]
+    ) / 2  # Midpoint values for flux approximation
+    a_half[..., 0] = a_x[..., 0]  # At the first midpoint
+    a_half[..., -1] = a_x[..., -1]  # At the last midpoint
 
     # Construct the finite difference matrix
-    lower_diag = -a_half[...,1:-1] / h**2
-    upper_diag = -a_half[...,1:-1] / h**2
-    main_diag = (a_half[...,:-1] + a_half[...,1:]) / h**2
+    lower_diag = -a_half[..., 1:-1] / h**2
+    upper_diag = -a_half[..., 1:-1] / h**2
+    main_diag = (a_half[..., :-1] + a_half[..., 1:]) / h**2
 
     # Right-hand side (forcing term)
-    b = np.ones([N-1])  # Constant source term (1)
+    b = np.ones([N - 1])  # Constant source term (1)
 
     u = vec_spsolve(main_diag, upper_diag, lower_diag, b)
     # Find index closest to x = 0.5
     idx = np.argmin(np.abs(x - 0.5))
-    return u[...,idx], x, a_x, u
+    return u[..., idx], x, a_x, u
+
 
 # Define wrapper function
 @multilevel
 def elliptic(level, sample):
     """
     Wrapper that just returns the quantity of interest.
-    
+
     >>> rng = np.random.Generator(np.random.PCG64(7))
     >>> qmean = 0
     >>> for l in range(4):

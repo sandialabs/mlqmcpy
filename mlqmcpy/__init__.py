@@ -1,10 +1,10 @@
 from .iterators import (
     AnalyticMLMCIterator,
+    GaussianProcessMLQMCIterator,
     GreedyMLMCIterator,
     GreedyMLQMCIterator,
-    GaussianProcessMLQMCIterator,
-    MultiTaskGaussianProcessMLQMCIteratorFunction,
     MultiTaskGaussianProcessMLQMCIteratorDifference,
+    MultiTaskGaussianProcessMLQMCIteratorFunction,
 )
 from .problems.utils import multilevel
 

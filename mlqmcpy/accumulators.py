@@ -1,5 +1,6 @@
 import numpy as np
-#from boost_histogram.accumulators import Mean
+
+# from boost_histogram.accumulators import Mean
 
 
 class Accumulator:
@@ -8,29 +9,29 @@ class Accumulator:
     """
 
     def __init__(self):
-        #self._accumulator = Mean()
-        self._accumulator = np.empty(0)#Mean()
+        # self._accumulator = Mean()
+        self._accumulator = np.empty(0)  # Mean()
 
     def add(self, sample):
         """Add a sample."""
-        #self._accumulator(sample)
-        self._accumulator = np.append(self._accumulator,sample)
+        # self._accumulator(sample)
+        self._accumulator = np.append(self._accumulator, sample)
 
     @property
     def mean(self):
         """Return the current mean or NaN if no samples."""
-        #return self._accumulator.value if len(self) else np.nan
+        # return self._accumulator.value if len(self) else np.nan
         return self._accumulator.mean() if len(self) else np.nan
 
     @property
     def variance(self):
         """Return the current variance or NaN if no samples."""
-        #return self._accumulator.variance if len(self) else np.nan
+        # return self._accumulator.variance if len(self) else np.nan
         return self._accumulator.var() if len(self) else np.nan
 
     def __len__(self):
         """Return the number of samples."""
-        #return int(self._accumulator.count)
+        # return int(self._accumulator.count)
         return int(len(self._accumulator))
 
     @property
@@ -163,10 +164,13 @@ class GaussianProcessResponseAccumulator(ResponseAccumulator):
     def add_responses(self, responses):
         """Add multiple responses."""
         import torch
+
         for response in responses:
             self._accumulator.add(response)
         self._fgp.add_y_next(torch.tensor(responses).to(self._fgp.device))
-        if self._fgp.n.item()==len(responses) or self.refit_gps: # either the first iteration or we are forced to refit GPs
+        if (
+            self._fgp.n.item() == len(responses) or self.refit_gps
+        ):  # either the first iteration or we are forced to refit GPs
             self._fgp.fit(**self.kwargs_fastgp_fit)
         # self.n += len(responses)
         # print("self.n is now", self.n)

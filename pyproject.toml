@@ -1,18 +1,38 @@
 [project]
 name = "mlqmcpy"
-version = "0.0.1"
 description = "Multilevel quasi-Monte Carlo in Python."
+readme = "README.md"
+license = "MIT"
+authors = [
+    { name = "Pieterjan Robbe" },
+]
+requires-python = ">=3.12"
+keywords = ["monte-carlo", "quasi-monte-carlo", "mlmc", "mlqmc"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Mathematics",
+]
 dependencies = [
-    # "boost-histogram>=1.5.1",
     "numpy>=2.2.2",
     "qmcpy>=2.0.0.1c4",
     "prettytable>=3.5.0",
     "fastgps>=1.0.0.1b8",
+    "scipy>=1.15.1",
     "torch>=2.6.0",
 ]
-requires-python = ">=3.12"
+dynamic = ["version"]
 
-[project.optional-dependencies]
+[project.urls]
+Homepage = "https://github.com/PieterjanRobbe/mlqmcpy"
+Repository = "https://github.com/PieterjanRobbe/mlqmcpy"
+Issues = "https://github.com/PieterjanRobbe/mlqmcpy/issues"
+
+[dependency-groups]
 dev = [
     "black>=25.1.0",
     "isort>=6.0.0",
@@ -25,18 +45,31 @@ dev = [
 ]
 
 [build-system]
-requires = ["setuptools", "wheel"]
+requires = ["setuptools>=80", "setuptools-scm>=8", "wheel"]
 build-backend = "setuptools.build_meta"
 
-[tool.setuptools]
-packages = ["mlqmcpy"]
+[tool.setuptools.packages.find]
+include = ["mlqmcpy*"]
+
+[tool.setuptools.package-data]
+"mlqmcpy.problems" = ["fo_data/*.json", "fo_data/*.npy"]
+"mlqmcpy.problems.dakota" = ["dakota.in.template"]
+
+[tool.setuptools_scm]
+version_scheme = "no-guess-dev"
+local_scheme = "no-local-version"
 
 [tool.black]
 line-length = 88
-target-version = ["py313"]
+target-version = ["py312"]
 
 [tool.ruff]
 line-length = 88
+target-version = "py312"
+exclude = ["examples"]
+
+[tool.ruff.lint]
+select = ["E9", "F63", "F7", "F82"]
 
 [tool.isort]
 profile = "black"

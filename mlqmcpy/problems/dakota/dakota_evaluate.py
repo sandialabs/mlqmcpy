@@ -20,10 +20,19 @@ def dakota_evaluate(dakota_in, **kwargs):
         # Execute Dakota
         try:
             command = "dakota dakota.in"
-            subprocess.run(command, cwd=tmp, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, shell=True, check=True)
+            subprocess.run(
+                command,
+                cwd=tmp,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                shell=True,
+                check=True,
+            )
         except subprocess.CalledProcessError:
             command = "source ~/.bash_profile; dakota dakota.in"
-            subprocess.run(command, cwd=tmp, stdout=subprocess.DEVNULL, shell=True, check=True)
+            subprocess.run(
+                command, cwd=tmp, stdout=subprocess.DEVNULL, shell=True, check=True
+            )
 
         # Extract results
         return np.genfromtxt(os.path.join(tmp, "output.txt"), comments="%")[:, -1]

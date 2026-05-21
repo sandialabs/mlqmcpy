@@ -37,9 +37,10 @@ def analytic(level, samples=None):
     Returns:
       Quantity of interest Q_\\ell.
     """
-    if samples is None: samples = np.random.rand(2)
-    assert isinstance(samples,np.ndarray) and samples.shape[-1]==2
-    assert samples.shape[-1]==2
+    if samples is None:
+        samples = np.random.rand(2)
+    assert isinstance(samples, np.ndarray) and samples.shape[-1] == 2
+    assert samples.shape[-1] == 2
     return np.sin(samples[..., 0]) + 0.5**level * np.sin(samples[..., 1])
 
 

@@ -1,9 +1,10 @@
-import qmcpy as qp 
-import numpy as np 
+import numpy as np
+import qmcpy as qp
+
 
 class Genz(object):
     """
-    >>> d = 10 
+    >>> d = 10
     >>> rng = np.random.Generator(np.random.PCG64(7))
     >>> x = rng.uniform(low=0,high=1,size=(5,d))
     >>> for kind_func in ['OSCILLATORY','CORNER PEAK']:
@@ -18,16 +19,21 @@ class Genz(object):
     [0.18909183 0.41593843 0.52090812 0.34777664 0.32401829]
     [0.18504038 0.45209795 0.56114246 0.30768315 0.39085638]
     """
+
     def __init__(self, d, kind_func, kind_coeff):
-        self.d = d 
-        self.qp_genz = qp.Genz(qp.IIDStdUniform(d),kind_func=kind_func,kind_coeff=kind_coeff)
+        self.d = d
+        self.qp_genz = qp.Genz(
+            qp.IIDStdUniform(d), kind_func=kind_func, kind_coeff=kind_coeff
+        )
+
     def __call__(self, level, samples=None):
-        assert level==0, "Genz functions are single level"
+        assert level == 0, "Genz functions are single level"
         if samples is None:
             samples = np.random.rand(self.d)
-        assert samples.shape[-1]==self.d 
-        y = self.qp_genz.f(samples) 
+        assert samples.shape[-1] == self.d
+        y = self.qp_genz.f(samples)
         return y
+
     def ml(self, level, samples=None):
-        assert level==0, "Genz functions are single level"
-        return self.__call__(level=level,samples=samples)
+        assert level == 0, "Genz functions are single level"
+        return self.__call__(level=level, samples=samples)

@@ -1,11 +1,11 @@
+import types
+
 import numpy as np
+import scipy.stats
+from scipy.special import erf, erfc
+from scipy.stats import johnsonsu, norm
 
 from .utils import multilevel
-import scipy.stats 
-import numpy as np 
-from scipy.stats import norm,johnsonsu
-from scipy.special import erf,erfc
-import types 
 
 """
 https://inria.hal.science/hal-04088085/document
@@ -13,25 +13,29 @@ https://par.nsf.gov/servlets/purl/10513787
 https://arxiv.org/pdf/2504.18677
 """
 
+
 class Abstract0MeanSLTF(object):
     def __init__(self):
         self.exact = types.SimpleNamespace()
         self.exact.Q = types.SimpleNamespace()
-        self.exact.Q.mean = lambda level: 0.
+        self.exact.Q.mean = lambda level: 0.0
+
     def __call__(self, level, samples=None):
-        assert level==0, "function is single level"
+        assert level == 0, "function is single level"
         if samples is None:
             samples = np.random.rand(1)
         d = samples.shape[-1]
-        y = self.f(samples,d)
+        y = self.f(samples, d)
         return y
+
     def ml(self, level, samples=None):
-        assert level==0, "function is single level"
-        return self.__call__(level=level,samples=samples)
+        assert level == 0, "function is single level"
+        return self.__call__(level=level, samples=samples)
+
 
 class Sumxex(Abstract0MeanSLTF):
     """
-    >>> d = 10 
+    >>> d = 10
     >>> rng = np.random.Generator(np.random.PCG64(7))
     >>> f = Sumxex()
     >>> f(level=0,samples=rng.uniform(low=0,high=1,size=(5,2)))
@@ -39,12 +43,14 @@ class Sumxex(Abstract0MeanSLTF):
     >>> f(level=0,samples=rng.uniform(low=0,high=1,size=(2**20,2))).mean()
     np.float64(-0.0014598375114869312)
     """
+
     def f(self, u, d):
-        return -d+(u*np.exp(u)).sum(-1)
+        return -d + (u * np.exp(u)).sum(-1)
+
 
 class MC2(Abstract0MeanSLTF):
     """
-    >>> d = 10 
+    >>> d = 10
     >>> rng = np.random.Generator(np.random.PCG64(7))
     >>> f = MC2()
     >>> f(level=0,samples=rng.uniform(low=0,high=1,size=(5,2)))
@@ -52,28 +58,32 @@ class MC2(Abstract0MeanSLTF):
     >>> f(level=0,samples=rng.uniform(low=0,high=1,size=(2**20,2))).mean()
     np.float64(0.00031402440713339746)
     """
+
     def f(self, u, d):
-        return -1+(d-1/2)**(-d)*(d-u).prod(-1)
+        return -1 + (d - 1 / 2) ** (-d) * (d - u).prod(-1)
+
 
 class AbstractRidgeFunc(Abstract0MeanSLTF):
     def __init__(self, weights):
         self.weights = weights.upper()
         super().__init__()
+
     def f(self, x, d):
-        if self.weights=="EQUAL":
-            theta = d**(-1/2)
-        elif self.weights=="SPARSE":
-            eta = 2.**(-np.arange(1,d+1))
-            theta = eta/np.linalg.norm(eta)
+        if self.weights == "EQUAL":
+            theta = d ** (-1 / 2)
+        elif self.weights == "SPARSE":
+            eta = 2.0 ** (-np.arange(1, d + 1))
+            theta = eta / np.linalg.norm(eta)
         else:
-            raise Exception("invalid weights %s"%self.weights)
-        v = (theta*scipy.stats.norm.ppf(x)).sum(-1)
-        y = self.g(v) 
+            raise Exception("invalid weights %s" % self.weights)
+        v = (theta * scipy.stats.norm.ppf(x)).sum(-1)
+        y = self.g(v)
         return y
-    
+
+
 class RidgeJump(AbstractRidgeFunc):
     """
-    >>> d = 10 
+    >>> d = 10
     >>> rng = np.random.Generator(np.random.PCG64(7))
     >>> f = RidgeJump(weights="EQUAL")
     >>> f(level=0,samples=rng.uniform(low=0,high=1,size=(5,2)))
@@ -86,13 +96,15 @@ class RidgeJump(AbstractRidgeFunc):
     >>> f(level=0,samples=rng.uniform(low=0,high=1,size=(2**20,2))).mean()
     np.float64(0.000182064488953059)
     """
+
     def g(self, v):
         tau = 1
-        return -norm.cdf(-tau)+1.*(v>=tau)
-    
+        return -norm.cdf(-tau) + 1.0 * (v >= tau)
+
+
 class RidgePL(AbstractRidgeFunc):
     """
-    >>> d = 10 
+    >>> d = 10
     >>> rng = np.random.Generator(np.random.PCG64(7))
     >>> f = RidgePL(weights="EQUAL")
     >>> f(level=0,samples=rng.uniform(low=0,high=1,size=(5,2)))
@@ -105,9 +117,11 @@ class RidgePL(AbstractRidgeFunc):
     >>> f(level=0,samples=rng.uniform(low=0,high=1,size=(2**20,2))).mean()
     np.float64(7.69645859731687e-05)
     """
+
     def g(self, v):
         tau = 1
-        return np.maximum(v-tau,0)-norm.pdf(tau)+tau*norm.cdf(-tau)
+        return np.maximum(v - tau, 0) - norm.pdf(tau) + tau * norm.cdf(-tau)
+
 
 class RidgeKink(AbstractRidgeFunc):
     """
@@ -123,9 +137,17 @@ class RidgeKink(AbstractRidgeFunc):
     >>> f(level=0,samples=rng.uniform(low=0,high=1,size=(2**20,2))).mean()
     np.float64(7.722452957113127e-05)
     """
+
     def g(self, v):
-        C = (np.exp(2)*np.sqrt(np.pi)*(2*erf(1/np.sqrt(2))+2*erf(np.sqrt(2))+3*erfc(1/np.sqrt(2)))+np.sqrt(2)-np.sqrt(2)*np.exp(3/2))/(6*np.exp(2)*np.sqrt(np.pi))
-        return (np.minimum(np.maximum(-2,v),1)+2)/3-C
+        C = (
+            np.exp(2)
+            * np.sqrt(np.pi)
+            * (2 * erf(1 / np.sqrt(2)) + 2 * erf(np.sqrt(2)) + 3 * erfc(1 / np.sqrt(2)))
+            + np.sqrt(2)
+            - np.sqrt(2) * np.exp(3 / 2)
+        ) / (6 * np.exp(2) * np.sqrt(np.pi))
+        return (np.minimum(np.maximum(-2, v), 1) + 2) / 3 - C
+
 
 class RidgeFinance(AbstractRidgeFunc):
     """
@@ -141,13 +163,15 @@ class RidgeFinance(AbstractRidgeFunc):
     >>> f(level=0,samples=rng.uniform(low=0,high=1,size=(2**20,2))).mean()
     np.float64(5.940901363686472e-05)
     """
+
     def g(self, v):
-        C = 0.6772995069448933065809810480429866200664279525563499321239796826208436941383270035261275255944734882 
-        return np.minimum(1,np.sqrt(np.maximum(v+2,0))/2)-C
-         
+        C = 0.6772995069448933065809810480429866200664279525563499321239796826208436941383270035261275255944734882
+        return np.minimum(1, np.sqrt(np.maximum(v + 2, 0)) / 2) - C
+
+
 class RidgeSmooth(AbstractRidgeFunc):
     """
-    >>> d = 10 
+    >>> d = 10
     >>> rng = np.random.Generator(np.random.PCG64(7))
     >>> f = RidgeSmooth(weights="EQUAL")
     >>> f(level=0,samples=rng.uniform(low=0,high=1,size=(5,2)))
@@ -160,12 +184,14 @@ class RidgeSmooth(AbstractRidgeFunc):
     >>> f(level=0,samples=rng.uniform(low=0,high=1,size=(2**20,2))).mean()
     np.float64(1.597599954016813e-05)
     """
+
     def g(self, v):
-        return -norm.cdf(1/np.sqrt(2))+norm.cdf(1+v)
+        return -norm.cdf(1 / np.sqrt(2)) + norm.cdf(1 + v)
+
 
 class RidgeJSU(AbstractRidgeFunc):
     """
-    >>> d = 10 
+    >>> d = 10
     >>> rng = np.random.Generator(np.random.PCG64(7))
     >>> f = RidgeJSU(weights="EQUAL")
     >>> f(level=0,samples=rng.uniform(low=0,high=1,size=(5,2)))
@@ -178,10 +204,11 @@ class RidgeJSU(AbstractRidgeFunc):
     >>> f(level=0,samples=rng.uniform(low=0,high=1,size=(2**20,2))).mean()
     np.float64(-0.0007203754542004417)
     """
+
     def __init__(self, weights):
-        self.jsu = johnsonsu(a=1,b=1)
+        self.jsu = johnsonsu(a=1, b=1)
         self.jsu_mean = self.jsu.mean()
         super().__init__(weights=weights)
-    def g(self, v):
-        return -self.jsu_mean+self.jsu.ppf(norm.cdf(v))
 
+    def g(self, v):
+        return -self.jsu_mean + self.jsu.ppf(norm.cdf(v))
